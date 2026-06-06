@@ -11,6 +11,8 @@
     ├─ download
     └─ ${CONTAINER_NAME_SUFFIX}
         ├─ persistent
+        │   ├─ Config.pm
+        │   └─ VERSION
         ├─ log
         ├─ article
         └─ htdocs_custom
@@ -22,12 +24,13 @@
     ├─ download
     └─ default
         ├─ persistent
+        │   ├─ Config.pm
+        │   └─ VERSION
         ├─ log
         ├─ article
         └─ htdocs_custom
 </details>
 
-<br>
 <br>
 <br>
 
