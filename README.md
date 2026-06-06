@@ -7,13 +7,25 @@
 
 ## Folder Structure
 
-    /opt/znuny
+    ${ZNUNY_PERSISTENT_FOLDER}
     ├─ download
     └─ ${CONTAINER_NAME_SUFFIX}
         ├─ persistent
         ├─ log
         ├─ article
         └─ htdocs_custom
+
+<details>
+  <summary>Default</summary>
+
+    /opt/znuny
+    ├─ download
+    └─ default
+        ├─ persistent
+        ├─ log
+        ├─ article
+        └─ htdocs_custom
+</details>
 
 <br>
 <br>

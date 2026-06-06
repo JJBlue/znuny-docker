@@ -8,31 +8,31 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: /opt/znuny/download
+      device: ${ZNUNY_PERSISTENT_FOLDER}/download
   ZnunyPersistent:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: /opt/znuny/${CONTAINER_NAME_SUFFIX}/persistent
+      device: ${ZNUNY_PERSISTENT_FOLDER}/${CONTAINER_NAME_SUFFIX}/persistent
   ZnunyLog:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: /opt/znuny/${CONTAINER_NAME_SUFFIX}/log
+      device: ${ZNUNY_PERSISTENT_FOLDER}/${CONTAINER_NAME_SUFFIX}/log
   ZnunyArticle:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: /opt/znuny/${CONTAINER_NAME_SUFFIX}/article
+      device: ${ZNUNY_PERSISTENT_FOLDER}/${CONTAINER_NAME_SUFFIX}/article
   ZnunyHTDocs:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: /opt/znuny/${CONTAINER_NAME_SUFFIX}/htdocs_custom
+      device: ${ZNUNY_PERSISTENT_FOLDER}/${CONTAINER_NAME_SUFFIX}/htdocs_custom
 
 services:
   znuny:
