@@ -1,9 +1,19 @@
 # How to install
 
-## Prerequirenments
+## Prerequirenments (not docker image)
 - Web Server for redirection (optional: Server Certificate)
 - Postfix
 - Docker
+
+## Folder Structure (not docker image)
+
+    /opt/znuny
+    ├─ download
+    └─ ${CONTAINER_NAME_SUFFIX}
+        ├─ persistent
+        ├─ log
+        ├─ article
+        └─ htdocs_custom
 
 ## Docker Variables (.env)
 | Variable | Example | Description |

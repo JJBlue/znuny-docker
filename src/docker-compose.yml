@@ -8,31 +8,31 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: /opt/znuny${CONTAINER_NAME_SUFFIX}/download
+      device: /opt/znuny/download
   ZnunyPersistent:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: /opt/znuny${CONTAINER_NAME_SUFFIX}/persistent
+      device: /opt/znuny/${CONTAINER_NAME_SUFFIX}/persistent
   ZnunyLog:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: /opt/znuny${CONTAINER_NAME_SUFFIX}/log
+      device: /opt/znuny/${CONTAINER_NAME_SUFFIX}/log
   ZnunyArticle:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: /opt/znuny${CONTAINER_NAME_SUFFIX}/article
+      device: /opt/znuny/${CONTAINER_NAME_SUFFIX}/article
   ZnunyHTDocs:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: /opt/znuny${CONTAINER_NAME_SUFFIX}/htdocs_custom
+      device: /opt/znuny/${CONTAINER_NAME_SUFFIX}/htdocs_custom
 
 services:
   znuny:
@@ -47,7 +47,7 @@ services:
     build:
       context: .
       dockerfile: ./dockerfiles/Dockerfile.daemon
-    container_name: znuny_daemon${CONTAINER_NAME_SUFFIX}
+    container_name: znuny_daemon_${CONTAINER_NAME_SUFFIX}
     depends_on:
       - znuny-httpd
     networks:
@@ -70,7 +70,7 @@ services:
       dockerfile: ./dockerfiles/Dockerfile.httpd
       args:
         ZNUNY_VERSION: ${ZNUNY_VERSION}
-    container_name: znuny_httpd${CONTAINER_NAME_SUFFIX}
+    container_name: znuny_httpd_${CONTAINER_NAME_SUFFIX}
     ports:
       - "${external_port:-80}:80"
     networks:
