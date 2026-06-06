@@ -9,7 +9,7 @@
 
     ${ZNUNY_PERSISTENT_FOLDER}
     ├─ download
-    └─ ${CONTAINER_NAME_SUFFIX}
+    └─ ${ZNUNY_INSTANCE}
         ├─ persistent
         │   ├─ Config.pm
         │   └─ VERSION
@@ -40,7 +40,7 @@
 | Variable | Example | Description |
 |----------|--------|-------------|
 | ZNUNY_VERSION         | latest<br>7.3.3  | Znuny version         |
-| CONTAINER_NAME_SUFFIX | <br>instance1    | optional: Suffix for Dockername. Can be empty |
+| ZNUNY_INSTANCE | <br>instance1    | optional: Suffix for Dockername. Can be empty |
 | external_port         | 8080             | Apache external Port  |
 | DB_HOST               | znuny-db         | Database IP-Adresse   |
 | DB_NAME               | znuny            | Database Name         |
@@ -50,20 +50,23 @@
 ## Run Docker
 ### Run Docker default
 ```
+docker compose --profile build-only build
 docker compose up -d
 ```
 
 ### Run Docker with different instances
 1. Create a copy from .env
 2. Rename the copy f.e. to .env.instance1
-3. Run (TODO -p instance1 not used)
+3. Run
 ```
+docker compose --profile build-only build
 docker compose --env-file .env.instance1 up -d
 docker compose --env-file .env.instance2 up -d
 ```
 
 ### Run Docker with Mariadb
 ```
+docker compose --profile build-only build
 docker compose -f docker-compose.yml -f docker-compose-db.yml up -d
 ```
 

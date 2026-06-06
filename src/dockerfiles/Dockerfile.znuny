@@ -20,7 +20,7 @@ ARG ZNUNY_FILE_RELEASE_KEY=/download/znuny-release-key.asc
 
 
 
-# TODO own Downgrade: FAIL --> Change Version File manuel to continue
+# TODO own Downgrade: FAIL --> Change Version File manually to continue
 
 # Install all required Perl modules
 RUN apt-get update && \
@@ -68,6 +68,9 @@ RUN apt-get update && \
 # Inject project files for setup and clean up
 RUN mkdir -p /download ${ZNUNY_HOME}
 
+RUN mkdir -p /persistent && \
+    chown -R www-data:www-data /persistent
+
 # Check if newest version already exists; when not, delete folder and recreate
 # It does not delete content from symlinks
 # TODO Get ${VERSION} from VERSION file in persistent folder
@@ -106,18 +109,24 @@ RUN set -eux; \
             echo "Downloading... ${URL_FILE_KEY}"; \
             curl -fsSL "${URL_FILE_KEY}" -o "${ZNUNY_FILE_KEY}"; \
         fi; \
+        # Validate Download
         printf '%s  %s\n' "$(cat "${ZNUNY_ARCHIVE_FILE_HASH}")" "${ZNUNY_ARCHIVE_FILE}" | sha256sum -c -; \
         gpg --verify "${ZNUNY_FILE_KEY}" "${ZNUNY_ARCHIVE_FILE}"; \
-        tar -xzf "${ZNUNY_ARCHIVE_FILE}" -C "${ZNUNY_HOME}"; \
+        # Removes the top-level folder during extraction
+        tar -xzf "${ZNUNY_ARCHIVE_FILE}" --strip-components=1 -C "${ZNUNY_HOME}"; \
     fi;
 
 
-# TODO Do not override Config.pm
 # Fixing DOS newlines to fit unix
 RUN find ${ZNUNY_HOME} -type f -exec dos2unix {} +
-RUN mkdir -p /persistent && \
-    cp /opt/znuny/Kernel/Config.pm.dist /persistent/Config.pm && \
-    chown -R www-data:www-data /persistent
+
+
+# Create Config.pm if it doesn't already exist
+RUN set -eux; \
+    if [ ! -f /persistent/Config.pm ]; then \
+        cp /opt/znuny/Kernel/Config.pm.dist /persistent/Config.pm; \
+    fi; \
+    ln -s /persistent/Config.pm Kernel/Config.pm
 
 # Set Working Directory
 WORKDIR ${ZNUNY_HOME}
@@ -126,4 +135,4 @@ WORKDIR ${ZNUNY_HOME}
 RUN useradd -d ${ZNUNY_HOME} -c "Znuny user" -g www-data -s /bin/bash -M -N ${ZNUNY_USER}
 RUN bin/znuny.SetPermissions.pl --znuny-user ${ZNUNY_USER}
 
-# TODO Upgrade / Update Command : Only if Version changed
+# TODO Upgrade / Update Command: Only if Version changed
