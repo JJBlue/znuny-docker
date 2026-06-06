@@ -1,0 +1,45 @@
+# Dockerfile.daemon
+FROM znuny/base:latest
+
+ARG ZNUNY_USER=znuny
+ENV ZNUNY_HOME=/opt/znuny
+
+# Install required packages and Perl modules
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+      wget \
+      mariadb-client \
+      cpanminus \
+      cron \
+      bash-completion \
+      nullmailer \
+      uuid-dev \
+      build-essential \
+      curl \
+      dos2unix \
+      gosu && \
+    echo "smtp.unibas.ch" > /etc/nullmailer/remotes && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Setup Perl modules
+RUN cpanm --notest --force Jq Data::UUID
+
+# Configure cron jobs
+RUN su - ${ZNUNY_USER} -c "cd ${ZNUNY_HOME}/var/cron && for f in *.dist; do cp \$f \$(basename \$f .dist); done"
+RUN mkdir var/tmp && chown ${ZNUNY_USER}:www-data var/tmp
+RUN chmod +x bin/Cron.sh
+RUN bin/Cron.sh start ${ZNUNY_USER}
+
+# Setup Entrypoint
+COPY ./entrypoints/daemon.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Watchdog Setup
+COPY ./docker-specific/watchdog.sh /usr/local/bin/watchdog.sh
+RUN chmod +x /usr/local/bin/watchdog.sh
+RUN chown ${ZNUNY_USER}:www-data /usr/local/bin/watchdog.sh
+
+USER root
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/usr/local/bin/watchdog.sh"]

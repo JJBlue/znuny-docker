@@ -1,0 +1,124 @@
+# Dockerfile.znuny
+FROM debian:latest
+
+ARG ZNUNY_VERSION
+ARG ZNUNY_USER=znuny
+ENV ZNUNY_HOME=/opt/znuny \
+    PATH=$PATH:/opt/znuny/bin
+ARG APACHE_USER=www-data
+
+# Download URLs and Destination Paths
+ARG URL_FILE=https://download.znuny.org/releases/znuny-${ZNUNY_VERSION}.tar.gz
+ARG URL_FILE_HASH=https://download.znuny.org/releases/znuny-${ZNUNY_VERSION}.tar.gz.sha256
+ARG URL_FILE_KEY=https://download.znuny.org/releases/znuny-${ZNUNY_VERSION}.tar.gz.asc
+ARG URL_FILE_RELEASE_KEY=https://download.znuny.org/znuny-release-key.asc
+
+ARG ZNUNY_ARCHIVE_FILE=/download/znuny-${ZNUNY_VERSION}.tar.gz
+ARG ZNUNY_ARCHIVE_FILE_HASH=/download/znuny-${ZNUNY_VERSION}.tar.gz.sha256
+ARG ZNUNY_FILE_KEY=/download/znuny-${ZNUNY_VERSION}.tar.gz.asc
+ARG ZNUNY_FILE_RELEASE_KEY=/download/znuny-release-key.asc
+
+
+
+# Install all required Perl modules
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+      libdbi-perl \
+      libdbd-odbc-perl \
+      libdbd-mysql-perl \
+      libapache-dbi-perl \
+      libtimedate-perl \
+      libnet-dns-perl \
+      libnet-ldap-perl \
+      libio-socket-ssl-perl \
+      libpdf-api2-perl \
+      libsoap-lite-perl \
+      libtext-csv-xs-perl \
+      libjson-xs-perl \
+      libxml-libxml-perl \
+      libxml-libxslt-perl \
+      libyaml-perl \
+      libarchive-zip-perl \
+      libcrypt-eksblowfish-perl \
+      libencode-hanextra-perl \
+      libmail-imapclient-perl \
+      libtemplate-perl \
+      libdatetime-perl \
+      libdatetime-timezone-perl \
+      libdatetime-locale-perl \
+      libmoo-perl \
+      libyaml-libyaml-perl \
+      libjavascript-minifier-xs-perl \
+      libcss-minifier-xs-perl \
+      libauthen-sasl-perl \
+      libauthen-ntlm-perl \
+      libdbd-pg-perl \
+      libcrypt-jwt-perl \
+      libcrypt-openssl-x509-perl \
+      libhash-merge-perl \
+      libical-parser-perl \
+      libspreadsheet-xlsx-perl \
+      curl \
+      dos2unix \
+      gosu && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Inject project files for setup and clean up
+RUN mkdir -p /download ${ZNUNY_HOME}
+
+# Check if newest version already exists; when not, delete folder and recreate
+# It does not delete content from symlinks
+RUN set -eux; \
+    FILE_RELEASE=${ZNUNY_HOME}/RELEASE; \
+    if [[ -f "${FILE_RELEASE}" ]]; then \
+        source ${FILE_RELEASE}; \
+        if [[ "${VERSION}" != "${ZNUNY_VERSION}" ]]; then \
+            rm -r --no-dereference ${ZNUNY_HOME}; \
+            mkdir ${ZNUNY_HOME}; \
+        fi; \
+    fi;
+
+# Download and import Znuny Release Key
+RUN set -eux; \
+    if [ ! -d "${ZNUNY_HOME}" ] || [ -z "$(ls -A "${ZNUNY_HOME}" 2>/dev/null)" ]; then \
+        if [ ! -f "${ZNUNY_FILE_RELEASE_KEY}" ]; then \
+            echo "Downloading... ${URL_FILE_RELEASE_KEY}"; \
+            curl -fsSL "${URL_FILE_RELEASE_KEY}" -o "${ZNUNY_FILE_RELEASE_KEY}"; \
+        fi; \
+        gpg --import ${ZNUNY_FILE_RELEASE_KEY}; \
+    fi;
+
+# Download, verify and extract archive
+RUN set -eux; \
+    if [ ! -d "${ZNUNY_HOME}" ] || [ -z "$(ls -A "${ZNUNY_HOME}" 2>/dev/null)" ]; then \
+        if [ ! -f "${ZNUNY_ARCHIVE_FILE}" ]; then \
+            echo "Downloading... ${URL_FILE}"; \
+            curl -fsSL "${URL_FILE}" -o "${ZNUNY_ARCHIVE_FILE}"; \
+        fi; \
+        if [ ! -f "${ZNUNY_ARCHIVE_FILE_HASH}" ]; then \
+            echo "Downloading... ${URL_FILE_HASH}"; \
+            curl -fsSL "${URL_FILE_HASH}" -o "${ZNUNY_ARCHIVE_FILE_HASH}"; \
+        fi; \
+        if [ ! -f "${ZNUNY_FILE_KEY}" ]; then \
+            echo "Downloading... ${URL_FILE_KEY}"; \
+            curl -fsSL "${URL_FILE_KEY}" -o "${ZNUNY_FILE_KEY}"; \
+        fi; \
+        printf '%s  %s\n' "$(cat "${ZNUNY_ARCHIVE_FILE_HASH}")" "${ZNUNY_ARCHIVE_FILE}" | sha256sum -c -; \
+        gpg --verify "${ZNUNY_FILE_KEY}" "${ZNUNY_ARCHIVE_FILE}"; \
+        tar -xzf "${ZNUNY_ARCHIVE_FILE}" -C "${ZNUNY_HOME}"; \
+    fi;
+
+
+# TODO Do not override Config.pm
+# Fixing DOS newlines to fit unix
+RUN find ${ZNUNY_HOME} -type f -exec dos2unix {} +
+RUN mkdir -p /persistent && \
+    cp /opt/znuny/Kernel/Config.pm.dist /persistent/Config.pm && \
+    chown -R www-data:www-data /persistent
+
+# Set Working Directory
+WORKDIR ${ZNUNY_HOME}
+
+# Create Znuny user and set permissions
+RUN useradd -d ${ZNUNY_HOME} -c "Znuny user" -g www-data -s /bin/bash -M -N ${ZNUNY_USER}
+RUN bin/znuny.SetPermissions.pl --znuny-user ${ZNUNY_USER}

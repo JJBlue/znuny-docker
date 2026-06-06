@@ -1,0 +1,84 @@
+networks:
+  znuny-net:
+    driver: bridge
+
+volumes:
+  ZnunyDownload:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/znuny${CONTAINER_NAME_SUFFIX}/download
+  ZnunyPersistent:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/znuny${CONTAINER_NAME_SUFFIX}/persistent
+  ZnunyLog:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/znuny${CONTAINER_NAME_SUFFIX}/log
+  ZnunyArticle:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/znuny${CONTAINER_NAME_SUFFIX}/article
+  ZnunyHTDocs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/znuny${CONTAINER_NAME_SUFFIX}/htdocs_custom
+
+services:
+  znuny:
+    build:
+      context: .
+      dockerfile: ./dockerfiles/Dockerfile.znuny
+    image: znuny/base:latest # tags the image so child builds can reference it
+    # The base has no CMD, so we keep it from trying to run as a service.
+    profiles: ["build-only"]
+  
+  znuny-daemon:
+    build:
+      context: .
+      dockerfile: ./dockerfiles/Dockerfile.daemon
+    container_name: znuny_daemon${CONTAINER_NAME_SUFFIX}
+    depends_on:
+      - znuny-httpd
+    networks:
+      - znuny-net
+    environment:
+      DB_HOST: ${DB_HOST:-127.0.0.1}
+      DB_NAME: ${DB_NAME:-znuny}
+      DB_USER: ${DB_USER:-znuny}
+      DB_USER_PASS: ${DB_USER_PASS:-some-pass}
+    restart: unless-stopped
+    volumes:
+      - ZnunyLog:/opt/znuny/var/log
+      - ZnunyArticle:/opt/znuny/var/article
+      - ZnunyHTDocs:/opt/znuny/var/httpd/htdocs/custom
+      - ZnunyPersistent:/persistent
+
+  znuny-httpd:
+    build:
+      context: .
+      dockerfile: ./dockerfiles/Dockerfile.httpd
+      args:
+        ZNUNY_VERSION: ${ZNUNY_VERSION}
+    container_name: znuny_httpd${CONTAINER_NAME_SUFFIX}
+    ports:
+      - "${external_port:-80}:80"
+    networks:
+      - znuny-net
+    restart: unless-stopped
+    volumes:
+      - ZnunyLog:/opt/znuny/var/log
+      - ZnunyArticle:/opt/znuny/var/article
+      - ZnunyHTDocs:/opt/znuny/var/httpd/htdocs/custom
+      - ZnunyPersistent:/persistent
+      - ZnunyDownload:/download
