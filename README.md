@@ -50,7 +50,6 @@
 ## Run Docker
 ### Run Docker default
 ```
-docker compose --profile build-only build
 docker compose up -d
 ```
 
@@ -59,14 +58,12 @@ docker compose up -d
 2. Rename the copy f.e. to .env.instance1
 3. Run
 ```
-docker compose --profile build-only build
 docker compose --env-file .env.instance1 up -d
 docker compose --env-file .env.instance2 up -d
 ```
 
 ### Run Docker with Mariadb
 ```
-docker compose --profile build-only build
 docker compose -f docker-compose.yml -f docker-compose-db.yml up -d
 ```
 

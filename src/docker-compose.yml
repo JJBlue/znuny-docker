@@ -35,20 +35,11 @@ volumes:
       device: ${ZNUNY_PERSISTENT_FOLDER}/${ZNUNY_INSTANCE}/htdocs_custom
 
 services:
-  znuny:
-    build:
-      context: .
-      dockerfile: ./dockerfiles/Dockerfile.znuny
-      args:
-        ZNUNY_VERSION: ${ZNUNY_VERSION}
-    image: znuny/base:latest # tags the image so child builds can reference it
-    # The base has no CMD, so we keep it from trying to run as a service.
-    profiles: ["build-only"]
-  
   znuny-daemon:
     build:
       context: .
-      dockerfile: ./dockerfiles/Dockerfile.daemon
+      dockerfile: ./dockerfiles/Dockerfile.znuny
+      target: daemon
     container_name: znuny_daemon_${ZNUNY_INSTANCE}
     depends_on:
       - znuny-httpd
@@ -69,7 +60,8 @@ services:
   znuny-httpd:
     build:
       context: .
-      dockerfile: ./dockerfiles/Dockerfile.httpd
+      dockerfile: ./dockerfiles/Dockerfile.znuny
+      target: httpd
     container_name: znuny_httpd_${ZNUNY_INSTANCE}
     ports:
       - "${external_port:-80}:80"
