@@ -1,7 +1,3 @@
-secrets:
-  db_root_password:
-    file: ./secrets/db_root_password
-
 volumes:
   MariaDBVol:
 

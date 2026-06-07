@@ -6,13 +6,28 @@
 
 FROM debian:latest AS builder
 
+# TODO enable/disable optional znuny modules for faster compile time
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
+      # Required - XML::LibXML links against it - Dependency for Net::SAML2
+      libxml2-dev \
+      # Required - all Crypt::OpenSSL::* modules need it - Dependency for Net::SAML2
+      libssl-dev \
+      # Required - LWP::Protocol::https / compression support - Dependency for Net::SAML2
+      libnet-ssleay-perl \
+      zlib1g-dev \
+      # Required - Dependency for DBD::ODBC
+      unixodbc-dev \
+      # CPAN Installation
       build-essential \
       cpanminus && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN cpanm --local-lib=/opt/perl5 Jq Data::UUID Net::SAML2 DBD::ODBC
+RUN cpanm --notest --local-lib=/opt/perl5 \
+    Jq \
+    Data::UUID \
+    DBD::ODBC \
+    Net::SAML2
 
 
 
@@ -89,6 +104,12 @@ RUN apt-get update && \
       libhash-merge-perl \
       libical-parser-perl \
       libspreadsheet-xlsx-perl \
+      # DBD::ODBC
+      libxml2 \
+      libssl3 \
+      libnet-ssleay-perl \
+      unixodbc \
+      # Other packages
       curl \
       gnupg \
       unzip && \
@@ -201,6 +222,7 @@ RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
       apache2 \
       libapache2-mod-perl2 \
+      mariadb-client \
       gosu && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 

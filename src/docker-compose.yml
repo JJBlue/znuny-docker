@@ -1,4 +1,6 @@
 secrets:
+  db_root_password:
+    file: ./secrets/db_root_password
   db_password:
     file: ./secrets/db_password_${ZNUNY_INSTANCE}
 
@@ -48,6 +50,7 @@ services:
     networks:
       - znuny-net
     secrets:
+      - db_root_password
       - db_password
     environment:
       DB_HOST: ${DB_HOST:-znuny-db}
