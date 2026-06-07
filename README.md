@@ -36,14 +36,19 @@
 
 ## Docker Variables (.env)
 | Variable | Example | Description |
-|----------|--------|-------------|
+|----------|---------|-------------|
 | ZNUNY_VERSION         | latest<br>7.3.3  | Znuny version         |
 | ZNUNY_INSTANCE | <br>instance1    | optional: Suffix for Dockername. Can be empty |
-| external_port         | 8080             | Apache external Port  |
+| WEB_PORT         | 8080             | Apache external Port  |
 | DB_HOST               | znuny-db         | Database IP-Adresse   |
 | DB_NAME               | znuny            | Database Name         |
 | DB_USER               | znuny_user       | Database Username     |
-| DB_USER_PASS          | !mysecretpwd!    | Database Password     |
+
+## Docker Secrets (./secrets/*)
+| File | Example Content | Description |
+|------|-----------------|-------------|
+| db_root_password | !mysecretpwd! | Database root Password |
+| db_password_${ZNUNY_INSTANCE} | !mysecretpwd! | Database Password |
 
 ## Run Docker
 ### Run Docker default

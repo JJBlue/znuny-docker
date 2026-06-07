@@ -10,7 +10,5 @@ bash "$SCRIPT_DIR/znuny.sh"
 service nullmailer start
 service cron start
 
-ZNUNY_HOME="/opt/znuny" # TODO needed? Or can I get this from znuny.sh?
-cd "$ZNUNY_HOME"
-
+cd "/opt/znuny"
 exec gosu znuny "$@"

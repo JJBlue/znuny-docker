@@ -1,3 +1,7 @@
+secrets:
+  db_root_password:
+    file: ./secrets/db_root_password
+
 volumes:
   MariaDBVol:
 
@@ -11,14 +15,13 @@ services:
       - znuny-db
 
   znuny-db:
-    image: mariadb:${MARIADB_VERSION:-11.4.7}
+    image: mariadb:${MARIADB_VERSION:-latest}
     container_name: znuny_db
-    mem_limit: ${ZNUNY_DB_MEMLIMIT:-2048m}
+    mem_limit: ${DB_MEMLIMIT:-2048m}
+    secrets:
+      - db_root_password
     environment:
-      MYSQL_ROOT_PASSWORD: ${ROOT_PASS:-root-pass}
-      MYSQL_DATABASE: ${DB_NAME:-znuny}
-      MYSQL_USER: ${DB_USER:-znuny}
-      MYSQL_PASSWORD: ${DB_USER_PASS:-some-pass}
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
     volumes:
       - MariaDBVol:/var/lib/mysql
     restart: unless-stopped
@@ -32,3 +35,19 @@ services:
     ]
     labels:
       org.label-schema.group: "znuny"
+    # ---- Security hardening ----
+    read_only: true          # root FS is read-only; data goes on volumes
+    tmpfs:
+      - /tmp                 # MariaDB needs a writable /tmp
+      - /var/run/mysqld      # socket directory
+      - /run/mysqld
+    cap_drop:                # Drop all capabilities
+      - ALL
+    cap_add:                 # Add needed for MariaDB.
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+      - SYS_NICE
+    security_opt:
+      - no-new-privileges:true

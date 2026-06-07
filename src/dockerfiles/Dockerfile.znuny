@@ -1,11 +1,40 @@
 # Dockerfile.znuny
+
+#######################
+# Image: CPAN-builder #
+#######################
+
+FROM debian:latest AS builder
+
+RUN apt-get update && \
+    apt-get install -y cpanminus build-essential
+
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+      build-essential \
+      cpanminus \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN cpanm --local-lib=/opt/perl5 Data::UUID
+
+
+
+#####################
+# Image: Znuny-base #
+#####################
+
 FROM debian:latest AS base
 
 ARG ZNUNY_VERSION
+ARG ZNUNY_CHECKSUM
+ARG ZNUNY_SIGNATURE
 ARG ZNUNY_USER=znuny
-ENV ZNUNY_HOME=/opt/znuny \
-    PATH=$PATH:/opt/znuny/bin
 ARG APACHE_USER=www-data
+
+ENV ZNUNY_HOME=/opt/znuny \
+    PATH=$PATH:/opt/znuny/bin:/opt/perl5/bin \
+    PERL5LIB=/opt/perl5/lib/perl5 \
+    PERL_MM_USE_DEFAULT=1
 
 # Download URLs and Destination Paths
 ARG URL_FILE=https://download.znuny.org/releases/znuny-${ZNUNY_VERSION}.tar.gz
@@ -18,11 +47,19 @@ ARG ZNUNY_ARCHIVE_FILE_HASH=/tmp/znuny-${ZNUNY_VERSION}.tar.gz.sha256
 ARG ZNUNY_FILE_KEY=/tmp/znuny-${ZNUNY_VERSION}.tar.gz.asc
 ARG ZNUNY_FILE_RELEASE_KEY=/tmp/znuny-release-key.asc
 
+# Bash Colors
+ARG RED='\033[0;31m'
+ARG NC='\033[0m' # No Color
+
+# Use bash instead of sh for some bash code
+SHELL ["/bin/bash", "-c"]
+
 # Install all required Perl modules
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
       libdbi-perl \
       libdbd-mysql-perl \
+      #libdata-uuid-perl \ # No package available? --> Use cpan instead
       libapache-dbi-perl \
       libtimedate-perl \
       libnet-dns-perl \
@@ -56,10 +93,15 @@ RUN apt-get update && \
       libical-parser-perl \
       libspreadsheet-xlsx-perl \
       curl \
-      dos2unix \
+      #dos2unix \ # TODO necessary?
       gnupg \
       unzip && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install Perl Packages (not found in OS repository)
+COPY --from=builder /opt/perl5 /opt/perl5
+# Verify
+RUN perl -MData::UUID -e 'print "Data::UUID OK\n"'
 
 # TODO own Downgrade: FAIL --> Change Version File manually to continue
 
@@ -81,11 +123,18 @@ RUN set -eux; \
 
 # Download and import Znuny Release Key
 RUN set -eux; \
-    if [ ! -f "${ZNUNY_FILE_RELEASE_KEY}" ]; then \
-        echo "Downloading... ${URL_FILE_RELEASE_KEY}"; \
-        curl -fsSL "${URL_FILE_RELEASE_KEY}" -o "${ZNUNY_FILE_RELEASE_KEY}"; \
-    fi; \
-    gpg --import ${ZNUNY_FILE_RELEASE_KEY}
+    case "${ZNUNY_SIGNATURE,,}" in \
+        false|0|no|off) \
+            echo -e "${RED}Znuny Signature check is disabled${NC}" ;; \
+        *) \
+
+        if [ ! -f "${ZNUNY_FILE_RELEASE_KEY}" ]; then \
+            echo "Downloading... ${URL_FILE_RELEASE_KEY}"; \
+            curl -fsSL "${URL_FILE_RELEASE_KEY}" -o "${ZNUNY_FILE_RELEASE_KEY}"; \
+        fi; \
+        gpg --import ${ZNUNY_FILE_RELEASE_KEY} ;; \
+    esac
+
 
 # Download, verify and extract archive
 RUN set -eux; \
@@ -93,27 +142,45 @@ RUN set -eux; \
         echo "Downloading... ${URL_FILE}"; \
         curl -fsSL "${URL_FILE}" -o "${ZNUNY_ARCHIVE_FILE}"; \
     fi; \
-    if [ ! -f "${ZNUNY_ARCHIVE_FILE_HASH}" ]; then \
-        echo "Downloading... ${URL_FILE_HASH}"; \
-        curl -fsSL "${URL_FILE_HASH}" -o "${ZNUNY_ARCHIVE_FILE_HASH}"; \
-    fi; \
-    if [ ! -f "${ZNUNY_FILE_KEY}" ]; then \
-        echo "Downloading... ${URL_FILE_KEY}"; \
-        curl -fsSL "${URL_FILE_KEY}" -o "${ZNUNY_FILE_KEY}"; \
-    fi; \
-    # Validate Download
-    echo "${ZNUNY_ARCHIVE_FILE}"; \
-    ls -l "${ZNUNY_ARCHIVE_FILE}"; \
-    printf '%s  %s\n' "$(awk '{print $1}' "${ZNUNY_ARCHIVE_FILE_HASH}")" "${ZNUNY_ARCHIVE_FILE}" | sha256sum -c -; \
-    gpg --verify "${ZNUNY_FILE_KEY}" "${ZNUNY_ARCHIVE_FILE}"; \
+    #
+    # Check Hash
+    case "${ZNUNY_CHECKSUM,,}" in \
+        false|0|no|off) \
+            echo -e "${RED}Znuny Signature check is disabled${NC}";; \
+        *) \
+        #
+        # Download Hash
+        if [ ! -f "${ZNUNY_ARCHIVE_FILE_HASH}" ]; then \
+            echo "Downloading... ${URL_FILE_HASH}"; \
+            curl -fsSL "${URL_FILE_HASH}" -o "${ZNUNY_ARCHIVE_FILE_HASH}"; \
+        fi; \
+        #
+        # Validate Download
+        printf '%s  %s\n' "$(awk '{print $1}' "${ZNUNY_ARCHIVE_FILE_HASH}")" "${ZNUNY_ARCHIVE_FILE}" | sha256sum -c -;; \
+    esac; \
+    #
+    # Check Signature
+    case "${ZNUNY_SIGNATURE,,}" in \
+        false|0|no|off) \
+            echo -e "${RED}Znuny Signature check is disabled${NC}";; \
+        *) \
+        #
+        # Download Key
+        if [ ! -f "${ZNUNY_FILE_KEY}" ]; then \
+            echo "Downloading... ${URL_FILE_KEY}"; \
+            curl -fsSL "${URL_FILE_KEY}" -o "${ZNUNY_FILE_KEY}"; \
+        fi; \
+        #
+        # Validate Key
+        gpg --verify "${ZNUNY_FILE_KEY}" "${ZNUNY_ARCHIVE_FILE}";; \
+    esac; \
+    #
     # Removes the top-level folder during extraction
-        echo "${ZNUNY_ARCHIVE_FILE}"; \
-    ls -l "${ZNUNY_ARCHIVE_FILE}"; \
     tar -xzf "${ZNUNY_ARCHIVE_FILE}" --strip-components=1 -C "${ZNUNY_HOME}"
 
 
-# Fixing DOS newlines to fit unix
-RUN find ${ZNUNY_HOME} -type f -exec dos2unix {} +
+# Fixing DOS newlines to fit unix - TODO necessary?
+# RUN find ${ZNUNY_HOME} -type f -exec dos2unix {} +
 
 # Set Working Directory
 WORKDIR ${ZNUNY_HOME}

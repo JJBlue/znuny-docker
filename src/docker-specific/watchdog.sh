@@ -1,4 +1,5 @@
 #!/bin/sh
+
 set -eu
 
 ZNUNY_HOME="/opt/znuny"
@@ -13,7 +14,7 @@ CHECK_INTERVAL=30   # seconds
 MAX_FAILS=10        # 10 × 30s = 5 minutes
 
 FAILS=0
-DAEMON="/opt/znuny/bin/znuny.Daemon.pl"
+DAEMON="${ZNUNY_HOME}/bin/znuny.Daemon.pl"
 
 term_handler() {
     echo "Received termination signal, stopping Znuny"

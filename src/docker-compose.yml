@@ -1,3 +1,7 @@
+secrets:
+  db_password:
+    file: ./secrets/db_password_${ZNUNY_INSTANCE}
+
 networks:
   znuny-net:
     driver: bridge
@@ -36,16 +40,19 @@ services:
       target: daemon
       args:
         ZNUNY_VERSION: ${ZNUNY_VERSION}
+        ZNUNY_CHECKSUM: ${ZNUNY_CHECKSUM}
+        ZNUNY_SIGNATURE: ${ZNUNY_SIGNATURE}
     container_name: znuny_daemon_${ZNUNY_INSTANCE}
     depends_on:
       - znuny-httpd
     networks:
       - znuny-net
+    secrets:
+      - db_password
     environment:
-      DB_HOST: ${DB_HOST:-127.0.0.1}
+      DB_HOST: ${DB_HOST:-znuny-db}
       DB_NAME: ${DB_NAME:-znuny}
       DB_USER: ${DB_USER:-znuny}
-      DB_USER_PASS: ${DB_USER_PASS:-some-pass}
     restart: unless-stopped
     volumes:
       - ZnunyLog:/opt/znuny/var/log
@@ -60,16 +67,19 @@ services:
       target: httpd
       args:
         ZNUNY_VERSION: ${ZNUNY_VERSION}
+        ZNUNY_CHECKSUM: ${ZNUNY_CHECKSUM}
+        ZNUNY_SIGNATURE: ${ZNUNY_SIGNATURE}
     container_name: znuny_httpd_${ZNUNY_INSTANCE}
     ports:
-      - "${external_port:-80}:80"
+      - "${WEB_PORT:-80}:80"
     networks:
       - znuny-net
+    secrets:
+      - db_password
     environment:
-      DB_HOST: ${DB_HOST:-127.0.0.1}
+      DB_HOST: ${DB_HOST:-znuny-db}
       DB_NAME: ${DB_NAME:-znuny}
       DB_USER: ${DB_USER:-znuny}
-      DB_USER_PASS: ${DB_USER_PASS:-some-pass}
     restart: unless-stopped
     volumes:
       - ZnunyLog:/opt/znuny/var/log
