@@ -1,3 +1,10 @@
+# Feature
+
+- Multiple Instances
+- External Database
+- SSO (Kerberos; Apache accept Configuration) - Missing/Check?
+- Postfix send - Missing/Check?: 
+
 # Prerequirenments (Server, not docker image)
 
 ## Prerequirenments
