@@ -65,6 +65,11 @@ services:
       - "${external_port:-80}:80"
     networks:
       - znuny-net
+    environment:
+      DB_HOST: ${DB_HOST:-127.0.0.1}
+      DB_NAME: ${DB_NAME:-znuny}
+      DB_USER: ${DB_USER:-znuny}
+      DB_USER_PASS: ${DB_USER_PASS:-some-pass}
     restart: unless-stopped
     volumes:
       - ZnunyLog:/opt/znuny/var/log
