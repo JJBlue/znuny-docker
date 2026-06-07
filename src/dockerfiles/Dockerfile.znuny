@@ -12,7 +12,7 @@ RUN apt-get update && \
       cpanminus && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN cpanm --local-lib=/opt/perl5 Data::UUID
+RUN cpanm --local-lib=/opt/perl5 Jq Data::UUID Net::SAML2 DBD::ODBC
 
 
 
@@ -90,17 +90,16 @@ RUN apt-get update && \
       libical-parser-perl \
       libspreadsheet-xlsx-perl \
       curl \
-      #dos2unix \ # TODO necessary?
       gnupg \
       unzip && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install Perl Packages (not found in OS repository)
+# Install Perl Modules
 COPY --from=builder /opt/perl5 /opt/perl5
 # Verify
 RUN perl -MData::UUID -e 'print "Data::UUID OK\n"'
-
-# TODO own Downgrade: FAIL --> Change Version File manually to continue
+RUN perl -MData::UUID -e 'print "Net::SAML2 OK\n"'
+RUN perl -MData::UUID -e 'print "DBD::ODBC OK\n"'
 
 # Inject project files for setup and clean up
 RUN mkdir -p ${ZNUNY_HOME}
@@ -175,10 +174,6 @@ RUN set -eux; \
     # Removes the top-level folder during extraction
     tar -xzf "${ZNUNY_ARCHIVE_FILE}" --strip-components=1 -C "${ZNUNY_HOME}"
 
-
-# Fixing DOS newlines to fit unix - TODO necessary?
-# RUN find ${ZNUNY_HOME} -type f -exec dos2unix {} +
-
 # Set Working Directory
 WORKDIR ${ZNUNY_HOME}
 
@@ -208,6 +203,13 @@ RUN apt-get update && \
       libapache2-mod-perl2 \
       gosu && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install Perl Modules
+COPY --from=builder /opt/perl5 /opt/perl5
+# Verify
+RUN perl -MData::UUID -e 'print "Data::UUID OK\n"'
+RUN perl -MData::UUID -e 'print "Net::SAML2 OK\n"'
+RUN perl -MData::UUID -e 'print "DBD::ODBC OK\n"'
 
 # Apache configuration
 # TODO persistent configuration_file do not override if it exists already
@@ -254,20 +256,12 @@ FROM base AS daemon
 # Install required packages and Perl modules
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
-      wget \
       mariadb-client \
-      cpanminus \
       cron \
-      bash-completion \
       nullmailer \
-      uuid-dev \
-      build-essential \
       gosu && \
     echo "smtp.unibas.ch" > /etc/nullmailer/remotes && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Setup Perl modules
-RUN cpanm --notest --force Jq Data::UUID
 
 # The base sets WORKDIR ${ZNUNY_HOME}, which is inherited — here only for better visibility
 WORKDIR ${ZNUNY_HOME}
