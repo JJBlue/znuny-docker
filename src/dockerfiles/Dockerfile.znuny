@@ -7,12 +7,9 @@
 FROM debian:latest AS builder
 
 RUN apt-get update && \
-    apt-get install -y cpanminus build-essential
-
-RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
       build-essential \
-      cpanminus \
+      cpanminus && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN cpanm --local-lib=/opt/perl5 Data::UUID
