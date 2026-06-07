@@ -3,12 +3,6 @@ networks:
     driver: bridge
 
 volumes:
-  ZnunyDownload:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${ZNUNY_PERSISTENT_FOLDER}/download
   ZnunyPersistent:
     driver: local
     driver_opts:
@@ -40,6 +34,8 @@ services:
       context: .
       dockerfile: ./dockerfiles/Dockerfile.znuny
       target: daemon
+      args:
+        ZNUNY_VERSION: ${ZNUNY_VERSION}
     container_name: znuny_daemon_${ZNUNY_INSTANCE}
     depends_on:
       - znuny-httpd
@@ -62,6 +58,8 @@ services:
       context: .
       dockerfile: ./dockerfiles/Dockerfile.znuny
       target: httpd
+      args:
+        ZNUNY_VERSION: ${ZNUNY_VERSION}
     container_name: znuny_httpd_${ZNUNY_INSTANCE}
     ports:
       - "${external_port:-80}:80"
@@ -73,4 +71,3 @@ services:
       - ZnunyArticle:/opt/znuny/var/article
       - ZnunyHTDocs:/opt/znuny/var/httpd/htdocs/custom
       - ZnunyPersistent:/persistent
-      - ZnunyDownload:/download

@@ -8,7 +8,6 @@
 ## Folder Structure
 
     ${ZNUNY_PERSISTENT_FOLDER}
-    ├─ download
     └─ ${ZNUNY_INSTANCE}
         ├─ persistent
         │   ├─ Config.pm
@@ -21,7 +20,6 @@
   <summary>Default</summary>
 
     /opt/znuny
-    ├─ download
     └─ default
         ├─ persistent
         │   ├─ Config.pm

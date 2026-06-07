@@ -1,5 +1,5 @@
 # Dockerfile.znuny
-FROM debian:latest as base
+FROM debian:latest AS base
 
 ARG ZNUNY_VERSION
 ARG ZNUNY_USER=znuny
@@ -13,14 +13,10 @@ ARG URL_FILE_HASH=https://download.znuny.org/releases/znuny-${ZNUNY_VERSION}.tar
 ARG URL_FILE_KEY=https://download.znuny.org/releases/znuny-${ZNUNY_VERSION}.tar.gz.asc
 ARG URL_FILE_RELEASE_KEY=https://download.znuny.org/znuny-release-key.asc
 
-ARG ZNUNY_ARCHIVE_FILE=/download/znuny-${ZNUNY_VERSION}.tar.gz
-ARG ZNUNY_ARCHIVE_FILE_HASH=/download/znuny-${ZNUNY_VERSION}.tar.gz.sha256
-ARG ZNUNY_FILE_KEY=/download/znuny-${ZNUNY_VERSION}.tar.gz.asc
-ARG ZNUNY_FILE_RELEASE_KEY=/download/znuny-release-key.asc
-
-
-
-# TODO own Downgrade: FAIL --> Change Version File manually to continue
+ARG ZNUNY_ARCHIVE_FILE=/tmp/znuny-${ZNUNY_VERSION}.tar.gz
+ARG ZNUNY_ARCHIVE_FILE_HASH=/tmp/znuny-${ZNUNY_VERSION}.tar.gz.sha256
+ARG ZNUNY_FILE_KEY=/tmp/znuny-${ZNUNY_VERSION}.tar.gz.asc
+ARG ZNUNY_FILE_RELEASE_KEY=/tmp/znuny-release-key.asc
 
 # Install all required Perl modules
 RUN apt-get update && \
@@ -61,14 +57,14 @@ RUN apt-get update && \
       libspreadsheet-xlsx-perl \
       curl \
       dos2unix \
-      gosu && \
+      gnupg \
+      unzip && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Inject project files for setup and clean up
-RUN mkdir -p /download ${ZNUNY_HOME}
+# TODO own Downgrade: FAIL --> Change Version File manually to continue
 
-RUN mkdir -p /persistent && \
-    chown -R www-data:www-data /persistent
+# Inject project files for setup and clean up
+RUN mkdir -p ${ZNUNY_HOME}
 
 # Check if newest version already exists; when not, delete folder and recreate
 # It does not delete content from symlinks
@@ -81,51 +77,43 @@ RUN set -eux; \
             rm -r --no-dereference ${ZNUNY_HOME}; \
             mkdir ${ZNUNY_HOME}; \
         fi; \
-    fi;
+    fi
 
 # Download and import Znuny Release Key
 RUN set -eux; \
-    if [ ! -d "${ZNUNY_HOME}" ] || [ -z "$(ls -A "${ZNUNY_HOME}" 2>/dev/null)" ]; then \
-        if [ ! -f "${ZNUNY_FILE_RELEASE_KEY}" ]; then \
-            echo "Downloading... ${URL_FILE_RELEASE_KEY}"; \
-            curl -fsSL "${URL_FILE_RELEASE_KEY}" -o "${ZNUNY_FILE_RELEASE_KEY}"; \
-        fi; \
-        gpg --import ${ZNUNY_FILE_RELEASE_KEY}; \
-    fi;
+    if [ ! -f "${ZNUNY_FILE_RELEASE_KEY}" ]; then \
+        echo "Downloading... ${URL_FILE_RELEASE_KEY}"; \
+        curl -fsSL "${URL_FILE_RELEASE_KEY}" -o "${ZNUNY_FILE_RELEASE_KEY}"; \
+    fi; \
+    gpg --import ${ZNUNY_FILE_RELEASE_KEY}
 
 # Download, verify and extract archive
 RUN set -eux; \
-    if [ ! -d "${ZNUNY_HOME}" ] || [ -z "$(ls -A "${ZNUNY_HOME}" 2>/dev/null)" ]; then \
-        if [ ! -f "${ZNUNY_ARCHIVE_FILE}" ]; then \
-            echo "Downloading... ${URL_FILE}"; \
-            curl -fsSL "${URL_FILE}" -o "${ZNUNY_ARCHIVE_FILE}"; \
-        fi; \
-        if [ ! -f "${ZNUNY_ARCHIVE_FILE_HASH}" ]; then \
-            echo "Downloading... ${URL_FILE_HASH}"; \
-            curl -fsSL "${URL_FILE_HASH}" -o "${ZNUNY_ARCHIVE_FILE_HASH}"; \
-        fi; \
-        if [ ! -f "${ZNUNY_FILE_KEY}" ]; then \
-            echo "Downloading... ${URL_FILE_KEY}"; \
-            curl -fsSL "${URL_FILE_KEY}" -o "${ZNUNY_FILE_KEY}"; \
-        fi; \
-        # Validate Download
-        printf '%s  %s\n' "$(cat "${ZNUNY_ARCHIVE_FILE_HASH}")" "${ZNUNY_ARCHIVE_FILE}" | sha256sum -c -; \
-        gpg --verify "${ZNUNY_FILE_KEY}" "${ZNUNY_ARCHIVE_FILE}"; \
-        # Removes the top-level folder during extraction
-        tar -xzf "${ZNUNY_ARCHIVE_FILE}" --strip-components=1 -C "${ZNUNY_HOME}"; \
-    fi;
+    if [ ! -f "${ZNUNY_ARCHIVE_FILE}" ]; then \
+        echo "Downloading... ${URL_FILE}"; \
+        curl -fsSL "${URL_FILE}" -o "${ZNUNY_ARCHIVE_FILE}"; \
+    fi; \
+    if [ ! -f "${ZNUNY_ARCHIVE_FILE_HASH}" ]; then \
+        echo "Downloading... ${URL_FILE_HASH}"; \
+        curl -fsSL "${URL_FILE_HASH}" -o "${ZNUNY_ARCHIVE_FILE_HASH}"; \
+    fi; \
+    if [ ! -f "${ZNUNY_FILE_KEY}" ]; then \
+        echo "Downloading... ${URL_FILE_KEY}"; \
+        curl -fsSL "${URL_FILE_KEY}" -o "${ZNUNY_FILE_KEY}"; \
+    fi; \
+    # Validate Download
+    echo "${ZNUNY_ARCHIVE_FILE}"; \
+    ls -l "${ZNUNY_ARCHIVE_FILE}"; \
+    printf '%s  %s\n' "$(awk '{print $1}' "${ZNUNY_ARCHIVE_FILE_HASH}")" "${ZNUNY_ARCHIVE_FILE}" | sha256sum -c -; \
+    gpg --verify "${ZNUNY_FILE_KEY}" "${ZNUNY_ARCHIVE_FILE}"; \
+    # Removes the top-level folder during extraction
+        echo "${ZNUNY_ARCHIVE_FILE}"; \
+    ls -l "${ZNUNY_ARCHIVE_FILE}"; \
+    tar -xzf "${ZNUNY_ARCHIVE_FILE}" --strip-components=1 -C "${ZNUNY_HOME}"
 
 
 # Fixing DOS newlines to fit unix
 RUN find ${ZNUNY_HOME} -type f -exec dos2unix {} +
-
-
-# Create Config.pm if it doesn't already exist
-RUN set -eux; \
-    if [ ! -f /persistent/Config.pm ]; then \
-        cp /opt/znuny/Kernel/Config.pm.dist /persistent/Config.pm; \
-    fi; \
-    ln -s /persistent/Config.pm Kernel/Config.pm
 
 # Set Working Directory
 WORKDIR ${ZNUNY_HOME}
@@ -134,15 +122,16 @@ WORKDIR ${ZNUNY_HOME}
 RUN useradd -d ${ZNUNY_HOME} -c "Znuny user" -g www-data -s /bin/bash -M -N ${ZNUNY_USER}
 RUN bin/znuny.SetPermissions.pl --znuny-user ${ZNUNY_USER}
 
-# TODO Upgrade / Update Command: Only if Version changed
-
+# Entrypoint znuny.sh
+COPY ./entrypoints/znuny.sh /usr/local/bin/znuny.sh
+RUN chmod +x /usr/local/bin/znuny.sh
 
 
 ################
 # Image: httpd #
 ################
 
-FROM base as httpd
+FROM base AS httpd
 
 ARG APACHE_USER=www-data
 
@@ -180,6 +169,7 @@ EXPOSE 80
 # Setup Entry
 COPY ./entrypoints/apache.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
+
 COPY ./docker-specific/apache_starter.sh /usr/local/bin/apache_starter.sh
 RUN chmod +x /usr/local/bin/apache_starter.sh
 RUN chown www-data: /usr/local/bin/apache_starter.sh
@@ -195,7 +185,7 @@ CMD ["/usr/local/bin/apache_starter.sh"]
 #################
 
 # Dockerfile.daemon
-FROM base as daemon
+FROM base AS daemon
 
 # Install required packages and Perl modules
 RUN apt-get update && \
@@ -208,8 +198,6 @@ RUN apt-get update && \
       nullmailer \
       uuid-dev \
       build-essential \
-      curl \
-      dos2unix \
       gosu && \
     echo "smtp.unibas.ch" > /etc/nullmailer/remotes && \
     apt-get clean && rm -rf /var/lib/apt/lists/*

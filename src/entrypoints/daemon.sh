@@ -1,6 +1,13 @@
 #!/bin/bash
+
+# Stop on Error
 set -e
 
+# Setup Znuny
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+bash "$SCRIPT_DIR/znuny.sh"
+
+# Setup Rest
 PERSISTENT_CFG="/persistent/Config.pm"
 ZNUNY_CFG="/opt/znuny/Kernel/Config.pm"
 ZNUNY_HOME="/opt/znuny"
