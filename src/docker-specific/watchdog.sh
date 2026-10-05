@@ -8,7 +8,7 @@ cd "$ZNUNY_HOME"
 echo 'Checking modules...'
 $ZNUNY_HOME/bin/znuny.CheckModules.pl --all
 
-echo 'Starting Watchdog.'
+echo 'Starting Watchdog'
 
 CHECK_INTERVAL=30   # seconds
 MAX_FAILS=10        # 10 × 30s = 5 minutes

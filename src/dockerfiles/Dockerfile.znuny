@@ -1,12 +1,10 @@
-# Dockerfile.znuny
-
 #######################
 # Image: CPAN-builder #
 #######################
 
-FROM debian:latest AS builder
+FROM debian:stable-slim AS builder
 
-# TODO enable/disable optional znuny modules for faster compile time
+# NOTE: enable/disable optional znuny modules for faster compile time
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
       # Required - XML::LibXML links against it - Dependency for Net::SAML2
@@ -35,13 +33,12 @@ RUN cpanm --notest --local-lib=/opt/perl5 \
 # Image: Znuny-base #
 #####################
 
-FROM debian:latest AS base
+FROM debian:stable-slim AS base
 
 ARG ZNUNY_VERSION
 ARG ZNUNY_CHECKSUM
 ARG ZNUNY_SIGNATURE
 ARG ZNUNY_USER=znuny
-ARG APACHE_USER=www-data
 
 ENV ZNUNY_HOME=/opt/znuny \
     PATH=$PATH:/opt/znuny/bin:/opt/perl5/bin \
@@ -110,6 +107,8 @@ RUN apt-get update && \
       libnet-ssleay-perl \
       unixodbc \
       # Other packages
+      mariadb-client \
+      gosu \
       curl \
       gnupg \
       unzip && \
@@ -213,17 +212,11 @@ RUN chmod +x /usr/local/bin/znuny.sh
 
 FROM base AS httpd
 
-ARG APACHE_USER=www-data
-
-
-
 # Install Apache with Perl module
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
       apache2 \
-      libapache2-mod-perl2 \
-      mariadb-client \
-      gosu && \
+      libapache2-mod-perl2 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Perl Modules
@@ -241,17 +234,7 @@ RUN a2dismod mpm_event && \
     a2enconf zzz_znuny && \
     echo "RedirectMatch ^/$ /znuny/index.pl" >> /etc/apache2/apache2.conf
 
-ENV APACHE_RUN_USER=${APACHE_USER} \
-    APACHE_RUN_GROUP=${APACHE_USER} \
-    APACHE_RUN_DIR=/var/run/apache2 \
-    APACHE_LOCK_DIR=/var/lock/apache2 \
-    APACHE_LOG_DIR=/var/log/apache2 \
-    APACHE_PID_FILE=/var/run/apache2/apache2.pid
-
-RUN mkdir -p /var/run/apache2 /var/lock/apache2 /var/log/apache2 && \
-    chown -R ${APACHE_USER}:${APACHE_USER} /var/run/apache2 /var/lock/apache2 /var/log/apache2
-
-# Expose HTTP port
+# Expose HTTP port - TODO?
 EXPOSE 80
 
 # Setup Entry
@@ -272,27 +255,7 @@ CMD ["/usr/local/bin/apache_starter.sh"]
 # Image: daemon #
 #################
 
-# Dockerfile.daemon
 FROM base AS daemon
-
-# Install required packages and Perl modules
-RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y \
-      mariadb-client \
-      cron \
-      nullmailer \
-      gosu && \
-    echo "smtp.unibas.ch" > /etc/nullmailer/remotes && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# The base sets WORKDIR ${ZNUNY_HOME}, which is inherited — here only for better visibility
-WORKDIR ${ZNUNY_HOME}
-
-# Configure cron jobs
-RUN su - ${ZNUNY_USER} -c "cd ${ZNUNY_HOME}/var/cron && for f in *.dist; do cp \$f \$(basename \$f .dist); done"
-RUN mkdir -p var/tmp && chown ${ZNUNY_USER}:www-data var/tmp
-RUN chmod +x bin/Cron.sh
-RUN bin/Cron.sh start ${ZNUNY_USER}
 
 # Setup Entrypoint
 COPY ./entrypoints/daemon.sh /usr/local/bin/entrypoint.sh
