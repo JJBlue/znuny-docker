@@ -1,0 +1,82 @@
+#!/bin/bash
+
+DB_USER="test_user"
+DB_NAME="test_db"
+
+psql -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1;" >/dev/null 2>&1
+
+if [ $? -eq 0 ]; then
+    echo "✅ Database user works (login + query OK)"
+else
+    echo "❌ Database user FAILED"
+fi
+
+
+# psql -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1;"
+
+
+psql -U "$DB_USER" -d "$DB_NAME" -tAc "SELECT 1;" >/dev/null 2>&1
+
+
+
+
+
+
+#!/bin/bash
+
+DB_HOST="localhost"
+DB_USER="znuny"
+DB_PASS="your_password"
+DB_NAME="znuny_database"
+
+TABLE_COUNT=$(mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" -D "$DB_NAME" -sse "
+SELECT COUNT(*)
+FROM information_schema.tables
+WHERE table_schema='$DB_NAME';
+")
+
+echo "Table count: $TABLE_COUNT"
+
+if [ "$TABLE_COUNT" -gt 100 ]; then
+    echo "Database has more than 100 tables → running main logic"
+
+    # 👉 MAIN LOGIC HERE
+    mysql -h "$DB_HOST" -u "$DB_USER" -p"$DB_PASS" -D "$DB_NAME" -e "
+        SELECT 'DB is fully initialized';
+    "
+
+else
+    echo "Database has 100 or fewer tables → running fallback logic"
+
+    # 👉 FALLBACK LOGIC HERE
+    echo "Database not fully initialized or wrong schema"
+fi
+
+
+
+
+#!/bin/bash
+
+DB_USER="znuny"
+DB_NAME="znuny_database"
+
+TABLE_COUNT=$(psql -U "$DB_USER" -d "$DB_NAME" -tAc "
+SELECT COUNT(*)
+FROM information_schema.tables
+WHERE table_schema='public';
+")
+
+echo "Table count: $TABLE_COUNT"
+
+if [ "$TABLE_COUNT" -gt 100 ]; then
+    echo "Database has more than 100 tables → running main logic"
+
+    # 👉 MAIN LOGIC HERE
+    psql -U "$DB_USER" -d "$DB_NAME" -c "SELECT 'DB OK';"
+
+else
+    echo "Database has 100 or fewer tables → running fallback logic"
+
+    # 👉 FALLBACK LOGIC HERE
+    echo "Database not fully initialized or wrong schema"
+fi
