@@ -6,6 +6,7 @@ FROM debian:stable-slim AS builder
 
 # NOTE: enable/disable optional znuny modules for faster compile time
 RUN apt-get update && \
+    apt-get upgrade -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
       # Required - XML::LibXML links against it - Dependency for Net::SAML2
       libxml2-dev \
@@ -65,6 +66,7 @@ SHELL ["/bin/bash", "-c"]
 
 # Install all required Perl modules
 RUN apt-get update && \
+    apt-get upgrade -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
       libdbi-perl \
       libdbd-mysql-perl \
@@ -212,6 +214,8 @@ RUN chmod +x /usr/local/bin/znuny.sh
 
 FROM base AS httpd
 
+ARG APACHE_USER=www-data
+
 # Install Apache with Perl module
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
@@ -228,11 +232,22 @@ RUN perl -MData::UUID -e 'print "DBD::ODBC OK\n"'
 
 # Apache configuration
 # TODO persistent configuration_file do not override if it exists already
+# TODO Accept User-Header (Single SignOn)
 RUN a2dismod mpm_event && \
     a2enmod mpm_prefork perl headers deflate filter cgi rewrite && \
     ln -s ${ZNUNY_HOME}/scripts/apache2-httpd.include.conf /etc/apache2/conf-available/zzz_znuny.conf && \
     a2enconf zzz_znuny && \
     echo "RedirectMatch ^/$ /znuny/index.pl" >> /etc/apache2/apache2.conf
+
+ENV APACHE_RUN_USER=${APACHE_USER} \
+    APACHE_RUN_GROUP=${APACHE_USER} \
+    APACHE_RUN_DIR=/var/run/apache2 \
+    APACHE_LOCK_DIR=/var/lock/apache2 \
+    APACHE_LOG_DIR=/var/log/apache2 \
+    APACHE_PID_FILE=/var/run/apache2/apache2.pid
+
+RUN mkdir -p /var/run/apache2 /var/lock/apache2 /var/log/apache2 && \
+    chown -R ${APACHE_USER}:${APACHE_USER} /var/run/apache2 /var/lock/apache2 /var/log/apache2
 
 # Expose HTTP port - TODO?
 EXPOSE 80
