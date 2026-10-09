@@ -1,0 +1,27 @@
+services:
+  znuny-daemon:
+    build:
+      context: .
+      dockerfile: ./dockerfiles/Dockerfile.znuny
+      target: daemon
+      args:
+        ZNUNY_VERSION: ${ZNUNY_VERSION}
+        ZNUNY_CHECKSUM: ${ZNUNY_CHECKSUM}
+        ZNUNY_SIGNATURE: ${ZNUNY_SIGNATURE}
+    container_name: znuny_daemon_${ZNUNY_INSTANCE}
+    depends_on:
+      - znuny-httpd
+    networks:
+      - znuny-net
+    secrets:
+      - db_password
+    environment:
+      DB_HOST: ${DB_HOST:-znuny-db}
+      DB_NAME: ${DB_NAME:-znuny}
+      DB_USER: ${DB_USER:-znuny}
+    restart: unless-stopped
+    volumes:
+      - ZnunyLog:/opt/znuny/var/log
+      - ZnunyArticle:/opt/znuny/var/article
+      - ZnunyHTDocs:/opt/znuny/var/httpd/htdocs/custom
+      - ZnunyPersistent:/persistent

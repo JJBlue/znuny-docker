@@ -1,8 +1,8 @@
 secrets:
-  db_root_password:
-    file: ./secrets/db_root_password
   db_password:
     file: ./secrets/db_password_${ZNUNY_INSTANCE}
+  znuny_admin:
+    file: ./secrets/znuny_admin_password_${ZNUNY_INSTANCE}
 
 networks:
   znuny-net:
@@ -34,35 +34,6 @@ volumes:
       o: bind
       device: ${ZNUNY_PERSISTENT_FOLDER}/${ZNUNY_INSTANCE}/htdocs_custom
 
-services:
-  znuny-daemon:
-    build:
-      context: .
-      dockerfile: ./dockerfiles/Dockerfile.znuny
-      target: daemon
-      args:
-        ZNUNY_VERSION: ${ZNUNY_VERSION}
-        ZNUNY_CHECKSUM: ${ZNUNY_CHECKSUM}
-        ZNUNY_SIGNATURE: ${ZNUNY_SIGNATURE}
-    container_name: znuny_daemon_${ZNUNY_INSTANCE}
-    depends_on:
-      - znuny-httpd
-    networks:
-      - znuny-net
-    secrets:
-      - db_root_password
-      - db_password
-    environment:
-      DB_HOST: ${DB_HOST:-znuny-db}
-      DB_NAME: ${DB_NAME:-znuny}
-      DB_USER: ${DB_USER:-znuny}
-    restart: unless-stopped
-    volumes:
-      - ZnunyLog:/opt/znuny/var/log
-      - ZnunyArticle:/opt/znuny/var/article
-      - ZnunyHTDocs:/opt/znuny/var/httpd/htdocs/custom
-      - ZnunyPersistent:/persistent
-
   znuny-httpd:
     build:
       context: .
@@ -72,6 +43,7 @@ services:
         ZNUNY_VERSION: ${ZNUNY_VERSION}
         ZNUNY_CHECKSUM: ${ZNUNY_CHECKSUM}
         ZNUNY_SIGNATURE: ${ZNUNY_SIGNATURE}
+        ZNUNY_DEFAULT_INTERFACE: ${ZNUNY_DEFAULT_INTERFACE}
     container_name: znuny_httpd_${ZNUNY_INSTANCE}
     ports:
       - "${WEB_PORT:-80}:80"
@@ -79,6 +51,7 @@ services:
       - znuny-net
     secrets:
       - db_password
+      - znuny_admin
     environment:
       DB_HOST: ${DB_HOST:-znuny-db}
       DB_NAME: ${DB_NAME:-znuny}
