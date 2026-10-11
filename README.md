@@ -56,6 +56,7 @@
 |------|-----------------|-------------|
 | db_root_password | !mysecretpwd! | Database root Password |
 | db_password_${ZNUNY_INSTANCE} | !mysecretpwd! | Database Password |
+| znuny_admin_password_${ZNUNY_INSTANCE} | !mysecretpwd! | Znuny Admin (root@localhost) Password |
 
 ## Run Docker
 ### Run Docker default

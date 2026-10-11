@@ -8,16 +8,19 @@ volumes:
 services:
   znuny-daemon:
     depends_on:
-      - znuny-db
+      znuny-db:
+        condition: service_healthy
 
   znuny-httpd:
     depends_on:
-      - znuny-db
+      znuny-db:
+        condition: service_healthy
 
   znuny-db:
     image: mariadb:${MARIADB_VERSION:-latest}
     container_name: znuny_db
     mem_limit: ${DB_MEMLIMIT:-2048m}
+    cpus: ${DB_CPUS:-2}
     secrets:
       - db_root_password
     environment:
@@ -25,6 +28,12 @@ services:
     volumes:
       - MariaDBVol:/var/lib/mysql
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     ports:
       - "${DB_PORT:-3306}:3306"
     networks:

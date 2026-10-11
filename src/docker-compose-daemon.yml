@@ -9,18 +9,29 @@ services:
         ZNUNY_CHECKSUM: ${ZNUNY_CHECKSUM}
         ZNUNY_SIGNATURE: ${ZNUNY_SIGNATURE}
     container_name: znuny_daemon_${ZNUNY_INSTANCE}
+    mem_limit: ${DAEMON_MEMLIMIT:-2048m}
+    cpus: ${DAEMON_CPUS:-2}
     depends_on:
-      - znuny-httpd
+      znuny-httpd:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "gosu", "znuny", "${ZNUNY_PERSISTENT_FOLDER}/bin/znuny.Daemon.pl", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
     networks:
       - znuny-net
     secrets:
       - db_password
     environment:
       DB_HOST: ${DB_HOST:-znuny-db}
+      DB_PORT: ${DB_PORT:-3306}
       DB_NAME: ${DB_NAME:-znuny}
       DB_USER: ${DB_USER:-znuny}
     restart: unless-stopped
     volumes:
+      - Znuny:/opt/znuny
       - ZnunyLog:/opt/znuny/var/log
       - ZnunyArticle:/opt/znuny/var/article
       - ZnunyHTDocs:/opt/znuny/var/httpd/htdocs/custom
