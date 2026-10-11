@@ -38,8 +38,14 @@ version_gt() {
     [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n1)" = "$1" ]
 }
 
+# Read a secret file. Strips CR/LF, so files edited on Windows work as well.
+read_secret() {
+    [ -r "$1" ] || die "Secret file $1 is missing or not readable"
+    tr -d '\r\n' < "$1"
+}
+
 # The password is passed via MYSQL_PWD (not -p<password>): it would be visible in "ps"
-MYSQL_PWD="$(cat "$DB_PASSWORD_FILE")"
+MYSQL_PWD="$(read_secret "$DB_PASSWORD_FILE")"
 export MYSQL_PWD
 
 mysql_command() {
@@ -67,7 +73,7 @@ DB_TYPE="$(sed -n '/^[[:space:]]*#/!s/.*DBI:\([^:]*\):.*/\1/p' "${ZNUNY_CFG}" | 
 case "${DB_TYPE,,}" in
     mysql)
         # Check $DB_USER
-        if mysqladmin -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$(cat "$DB_PASSWORD_FILE")" ping --silent 2>/dev/null | grep -q "is alive"; then
+        if mysqladmin -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$(read_secret "$DB_PASSWORD_FILE")" ping --silent 2>/dev/null | grep -q "is alive"; then
             echo "SQL user can authenticate"
 
             # Check if Database contains table
@@ -132,7 +138,7 @@ znuny_install() {
         echo "WARNING: package Znuny-ContainerHelper could not be installed - install it later manually" >&2
     fi
     "$ZNUNY_HOME/bin/znuny.Console.pl" Maint::Cache::Delete
-    "$ZNUNY_HOME/bin/znuny.Console.pl" Admin::User::SetPassword root@localhost "$(cat "$ZNUNY_ADMIN_PASSWORD_FILE")"
+    "$ZNUNY_HOME/bin/znuny.Console.pl" Admin::User::SetPassword root@localhost "$(read_secret "$ZNUNY_ADMIN_PASSWORD_FILE")"
 }
 
 znuny_upgrade() {

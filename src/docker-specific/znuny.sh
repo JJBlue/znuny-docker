@@ -31,6 +31,11 @@ FQDN="$(hostname -f)"
 [[ "$ZNUNY_NodeID" =~ ^[0-9]+$ ]] || die "ZNUNY_NodeID must be a number (got '$ZNUNY_NodeID')"
 [[ "$DB_PORT" =~ ^[0-9]+$ ]]      || die "DB_PORT must be a number (got '$DB_PORT')"
 
+# Read a secret file. Strips CR/LF, so files edited on Windows work as well.
+read_secret() {
+    [ -r "$1" ] || die "Secret file $1 is missing or not readable"
+    tr -d '\r\n' < "$1"
+}
 
 ####################
 # Setup Persistent #
@@ -54,7 +59,7 @@ if [ ! -f "$PERSISTENT_CFG" ]; then
     sed -i "s/\(\$Self->{DatabaseHost}\s*=\s*\)'[^']*';/\1'$DB_HOST';/" "$PERSISTENT_CFG"
     sed -i "s/\(\$Self->{Database}\s*=\s*\)'[^']*';/\1'$DB_NAME';/"     "$PERSISTENT_CFG"
     sed -i "s/\(\$Self->{DatabaseUser}\s*=\s*\)'[^']*';/\1'$DB_USER';/" "$PERSISTENT_CFG"
-    sed -i "s/\(\$Self->{DatabasePw}\s*=\s*\)'[^']*';/\1'$(cat "$DB_PASSWORD_FILE")';/" "$PERSISTENT_CFG"
+    sed -i "s/\(\$Self->{DatabasePw}\s*=\s*\)'[^']*';/\1'$(read_secret "$DB_PASSWORD_FILE")';/" "$PERSISTENT_CFG"
 
     if grep -qE '\$Self->\{NodeID\}\s*=' "$PERSISTENT_CFG"; then
         sed -i "s/\(\$Self->{NodeID}\s*=\s*\)[0-9]\+/\1${ZNUNY_NodeID}/" "$PERSISTENT_CFG"
