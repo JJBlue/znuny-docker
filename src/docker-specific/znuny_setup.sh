@@ -227,7 +227,7 @@ if [ -z "$INSTALL_STATE" ]; then
         fi
 
         SKIPPED=$(grep '^# [0-9]' "$CHANGES_FILE" \
-            | sed 's/^# \([0-9]*\)\.\([0-9]*\)\.[0-9]* .*/\1 \2/' \
+            | sed 's/^# \([0-9]*\)\.\([0-9]*\)\.\?[0-9]* .*/\1 \2/' \
             | sort -k1,1n -k2,2n -u \
             | while read -r maj min; do
                 if { [ "$maj" -gt "$DATABASE_MAJOR" ] || \
