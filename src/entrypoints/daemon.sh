@@ -1,13 +1,14 @@
 #!/bin/bash
 
-ZNUNY_HOME=${ZNUNY_HOME}
-
 # Stop on Error
-set -e
+set -euo pipefail
+
+: "${ZNUNY_HOME:?ZNUNY_HOME is not set}"
+: "${ZNUNY_USER:?ZNUNY_USER is not set}"
 
 # Setup Znuny
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 bash "$SCRIPT_DIR/znuny.sh"
 
-cd ${ZNUNY_HOME}
-exec gosu znuny "$@"
+cd "${ZNUNY_HOME}"
+exec gosu "${ZNUNY_USER}" "$@"

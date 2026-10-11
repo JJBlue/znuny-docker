@@ -15,7 +15,7 @@ services:
       znuny-httpd:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "gosu", "znuny", "${ZNUNY_PERSISTENT_FOLDER}/bin/znuny.Daemon.pl", "status"]
+      test: ["CMD", "gosu", "znuny", "/opt/znuny/bin/znuny.Daemon.pl", "status"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -29,6 +29,7 @@ services:
       DB_PORT: ${DB_PORT:-3306}
       DB_NAME: ${DB_NAME:-znuny}
       DB_USER: ${DB_USER:-znuny}
+      ZNUNY_NodeID: ${ZNUNY_NodeID:-1}
     restart: unless-stopped
     volumes:
       - Znuny:/opt/znuny

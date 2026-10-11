@@ -24,7 +24,7 @@ RUN apt-get update && \
 
 RUN cpanm --notest --local-lib=/opt/perl5 \
     Jq \
-    #DBD::ODBC \
+    DBD::ODBC \
     Net::SAML2
 
 
@@ -67,7 +67,7 @@ ARG RED='\033[0;31m'
 ARG NC='\033[0m' # No Color
 
 # Use bash instead of sh for some bash code
-SHELL ["/bin/bash", "-c"]
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install all required Perl modules
 RUN apt-get update && \
@@ -122,12 +122,12 @@ RUN apt-get update && \
       unzip && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install Perl Modules
+# Install Perl Modules (built in the builder stage) and verify that they load.
 COPY --from=builder /opt/perl5 /opt/perl5
 # Verify
-RUN perl -MData::UUID -e 'print "Data::UUID OK\n"'
-RUN perl -MData::UUID -e 'print "Net::SAML2 OK\n"'
-RUN perl -MData::UUID -e 'print "DBD::ODBC OK\n"'
+RUN perl -MData::UUID -e 'print "Data::UUID OK\n"' && \
+    perl -MNet::SAML2 -e 'print "Net::SAML2 OK\n"' && \
+    perl -DBD::ODBC -e 'print "DBD::ODBC OK\n"'
 
 # Create Znuny user
 RUN useradd -d ${ZNUNY_HOME} -c "Znuny user" -g ${APACHE_USER} -s /bin/bash -M -N ${ZNUNY_USER}
@@ -207,7 +207,7 @@ RUN set -eux; \
 # Set Working Directory
 WORKDIR ${ZNUNY_HOME}
 
-# docker-specific znuny.sh
+# docker-specific scripts
 COPY ./docker-specific/znuny.sh /usr/local/bin/znuny.sh
 COPY ./docker-specific/znuny_setup.sh /usr/local/bin/znuny_setup.sh
 RUN chmod +x /usr/local/bin/znuny.sh /usr/local/bin/znuny_setup.sh
@@ -232,15 +232,15 @@ RUN apt-get update && \
 
 # Install Perl Modules
 COPY --from=builder /opt/perl5 /opt/perl5
-# Verify
-RUN perl -MData::UUID -e 'print "Data::UUID OK\n"'
-RUN perl -MData::UUID -e 'print "Net::SAML2 OK\n"'
-RUN perl -MData::UUID -e 'print "DBD::ODBC OK\n"'
+# Verify - Again
+RUN perl -MData::UUID -e 'print "Data::UUID OK\n"' && \
+    perl -Net::SAML2 -e 'print "Net::SAML2 OK\n"' && \
+    perl -DBD::ODBC -e 'print "DBD::ODBC OK\n"'
 
 # Perl Configuration
 # Enable MySQL modules in Apache Perl startup
-RUN sed -i 's/^#use DBD::mysql/use DBD::mysql/' ${ZNUNY_STAGING}/scripts/apache2-perl-startup.pl && \
-    sed -i 's/^#use Kernel::System::DB::mysql/use Kernel::System::DB::mysql/' ${ZNUNY_STAGING}/scripts/apache2-perl-startup.pl
+RUN sed -i 's/^#use DBD::mysql/use DBD::mysql/' "${ZNUNY_STAGING}/scripts/apache2-perl-startup.pl" && \
+    sed -i 's/^#use Kernel::System::DB::mysql/use Kernel::System::DB::mysql/' "${ZNUNY_STAGING}/scripts/apache2-perl-startup.pl"
 
 # Apache configuration
 # TODO Accept User-Header (Single SignOn)
@@ -260,7 +260,7 @@ ENV APACHE_RUN_USER=${APACHE_USER} \
 RUN mkdir -p /var/run/apache2 /var/lock/apache2 /var/log/apache2 && \
     chown -R ${APACHE_USER}:${APACHE_USER} /var/run/apache2 /var/lock/apache2 /var/log/apache2
 
-# Expose HTTP port
+# Container-internal HTTP port (the external port is set with WEB_PORT in compose)
 EXPOSE 80
 
 # Setup Entry

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Stop on Error
-set -eu
+set -euo pipefail
 
 export WEB_PORT
 
@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 bash "$SCRIPT_DIR/znuny.sh"
 
 # Welcome message
-echo Listening on port ${WEB_PORT}
+echo "Apache listens on port 80 inside the container (published on host port ${WEB_PORT})"
 
 # Move to Main process
 # Apache must start as root (to bind ports and open files)

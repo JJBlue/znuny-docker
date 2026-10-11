@@ -187,12 +187,15 @@ znuny_helper_sync_files() {
 
 # Check Version changes: If INSTALL_STATE is not yet set
 if [ -z "$INSTALL_STATE" ]; then
+    # TODO Check better
     if [ "$DATABASE_VERSION" != "$NEW_VERSION" ]; then
         # Database is not up to date
 
+        # TODO Check better
         if [ "$DATABASE_MAJOR" != "$NEW_MAJOR" ]; then
             UPDATE_TYPE="major"
             INSTALL_STATE="upgrade"
+        # TODO Check better
         elif [ "$DATABASE_MINOR" != "$NEW_MINOR" ]; then
             UPDATE_TYPE="minor"
             INSTALL_STATE="upgrade"

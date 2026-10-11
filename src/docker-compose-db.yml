@@ -38,8 +38,6 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
-    ports:
-      - "${DB_PORT:-3306}:3306"
     networks:
       - znuny-net
     command: [
@@ -52,8 +50,8 @@ services:
     read_only: true          # root FS is read-only; data goes on volumes
     tmpfs:
       - /tmp                 # MariaDB needs a writable /tmp
-      - /var/run/mysqld      # socket directory
-      - /run/mysqld
+      - /var/run/mysqld      # is a symlink to /run
+      - /run/mysqld          # socket directory
     cap_drop:                # Drop all capabilities
       - ALL
     cap_add:                 # Add needed for MariaDB.
