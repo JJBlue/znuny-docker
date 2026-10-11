@@ -226,7 +226,8 @@ ARG WEB_PORT
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
       apache2 \
-      libapache2-mod-perl2 && \
+      libapache2-mod-perl2 \
+      rsync && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Perl Modules

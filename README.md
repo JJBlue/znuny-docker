@@ -74,6 +74,7 @@ docker compose --env-file .env.instance2 up -d
 ```
 
 ### Run Docker with Mariadb
+Only currently works with one instance only
 ```
 docker compose -f docker-compose.yml -f docker-compose-db.yml up -d
 ```

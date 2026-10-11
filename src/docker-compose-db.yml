@@ -23,8 +23,12 @@ services:
     cpus: ${DB_CPUS:-2}
     secrets:
       - db_root_password
+      - db_password
     environment:
       MARIADB_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+      MYSQL_DATABASE: ${DB_NAME:-znuny}
+      MYSQL_USER: ${DB_USER:-znuny}
+      MYSQL_PASSWORD_FILE: /run/secrets/db_password
     volumes:
       - MariaDBVol:/var/lib/mysql
     restart: unless-stopped

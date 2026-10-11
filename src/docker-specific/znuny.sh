@@ -29,8 +29,15 @@ FQDN="$(hostname -f)"
 # Setup Persistent #
 ####################
 
-# Create Folder # TODO once
-chown -R ${ZNUNY_USER}:${APACHE_USER} /persistent
+# Create Folder and set rights to it
+[ "$(stat -c '%U:%G' /persistent)" = "${ZNUNY_USER}:${APACHE_USER}" ] || chown -R "${ZNUNY_USER}:${APACHE_USER}" /persistent
+
+if [ ! -f "${ZNUNY_HOME}/bin/znuny.SetPermissions.pl" ]; then
+    echo "Setting folder permissions"
+    mkdir -p "${ZNUNY_HOME}/bin"
+    cp "${ZNUNY_STAGING}/bin/znuny.SetPermissions.pl" "${ZNUNY_HOME}/bin/znuny.SetPermissions.pl"
+    $ZNUNY_HOME/bin/znuny.SetPermissions.pl --znuny-user ${ZNUNY_USER}
+fi
 
 # Create Config.pm if it doesn't already exist
 if [ ! -f "$PERSISTENT_CFG" ]; then
@@ -55,7 +62,10 @@ fi
 # Create Config.pm symlink if not exist
 if [ ! -L "${ZNUNY_HOME}/Kernel/Config.pm" ]; then
     echo "Linking Persistent Config.pm"
+    
     mkdir -p "${ZNUNY_HOME}/Kernel"
+    chown ${ZNUNY_USER}:${APACHE_USER} "${ZNUNY_HOME}/Kernel"
+
     ln -sf "$PERSISTENT_CFG" "$ZNUNY_CFG"
 fi
 

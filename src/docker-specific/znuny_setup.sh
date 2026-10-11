@@ -7,7 +7,7 @@ set -eu
 ####################################################
 
 # INSTALL_STATE: install, update, upgrade, local (only if local Files are not up to date, for example second frontend server)
-INSTALL_STATE="upgrade"
+INSTALL_STATE=
 
 INSTALLED_VERSION=$(grep 'VERSION' "${ZNUNY_HOME}/RELEASE" 2>/dev/null | head -1 | awk '{print $NF}')
 if [ -z "$INSTALLED_VERSION" ]; then
@@ -43,7 +43,7 @@ mysql_import() {
     mysql -h "$DB_HOST" \
         -P "$DB_PORT" \
         -u "$DB_USER" \
-        -p"$DB_USER_PASS" \
+        -p"$(cat "$DB_PASSWORD_FILE")" \
         "$DB_NAME" < "$1"
 }
 
@@ -176,7 +176,7 @@ znuny_helper_sync_files() {
         --exclude='Kernel/Config.pm' \
         "$ZNUNY_STAGING/" "$ZNUNY_HOME/" 2>&1 | grep -v "failed to set times on" || true
 
-        $ZNUNY_HOME/bin/znuny.SetPermissions.pl --znuny-user ${ZNUNY_USER}
+    # Note: Set Permission are not possible here - Bash is running with znuny User. rsync may fail, if permission are not set yet.
 }
 
 
@@ -185,65 +185,67 @@ znuny_helper_sync_files() {
 # Install, Update, Upgrade - Checker #
 ######################################
 
-# Check Version changes
-if [ "$DATABASE_VERSION" != "$NEW_VERSION" ]; then
-    # Database is not up to date
+# Check Version changes: If INSTALL_STATE is not yet set
+if [ -z "$INSTALL_STATE" ]; then
+    if [ "$DATABASE_VERSION" != "$NEW_VERSION" ]; then
+        # Database is not up to date
 
-    if [ "$DATABASE_MAJOR" != "$NEW_MAJOR" ]; then
-        UPDATE_TYPE="major"
-        INSTALL_STATE="upgrade"
-    elif [ "$DATABASE_MINOR" != "$NEW_MINOR" ]; then
-        UPDATE_TYPE="minor"
-        INSTALL_STATE="upgrade"
+        if [ "$DATABASE_MAJOR" != "$NEW_MAJOR" ]; then
+            UPDATE_TYPE="major"
+            INSTALL_STATE="upgrade"
+        elif [ "$DATABASE_MINOR" != "$NEW_MINOR" ]; then
+            UPDATE_TYPE="minor"
+            INSTALL_STATE="upgrade"
+        else
+            UPDATE_TYPE="patch"
+            INSTALL_STATE="update"
+        fi
+
+        # Detect skipped minor versions by parsing CHANGES.md.
+        # Only the migration script for the current image version is available,
+        # so skipping a minor version would silently miss its schema changes.
+        CHANGES_FILE="$ZNUNY_STAGING/CHANGES.md"
+        if [ ! -f "$CHANGES_FILE" ]; then
+            echo "ERROR: $CHANGES_FILE not found — cannot verify upgrade path" >&2
+            exit 1
+        fi
+
+        SKIPPED=$(grep '^# [0-9]' "$CHANGES_FILE" \
+            | sed 's/^# \([0-9]*\)\.\([0-9]*\)\.[0-9]* .*/\1 \2/' \
+            | sort -k1,1n -k2,2n -u \
+            | while read -r maj min; do
+                if { [ "$maj" -gt "$DATABASE_MAJOR" ] || \
+                    { [ "$maj" -eq "$DATABASE_MAJOR" ] && [ "$min" -gt "$DATABASE_MINOR" ]; }; } && \
+                { [ "$maj" -lt "$NEW_MAJOR" ] || \
+                    { [ "$maj" -eq "$NEW_MAJOR" ] && [ "$min" -lt "$NEW_MINOR" ]; }; }; then
+                    printf '%s.%s ' "$maj" "$min"
+                fi
+            done)
+
+        if [ -n "$SKIPPED" ]; then
+            echo "ERROR: upgrade from $DATABASE_VERSION to $NEW_VERSION skips minor versions: $SKIPPED" >&2
+            echo "ERROR: upgrade step by step through each minor version." >&2
+            exit 1
+        fi
+
     else
-        UPDATE_TYPE="patch"
-        INSTALL_STATE="update"
+        # Database is up to date, but not the local files (for example second frontend server started)
+
+        if [ "$INSTALLED_VERSION" != "$NEW_VERSION" ]; then
+            INSTALL_STATE="local"
+        else
+            echo "Znuny $NEW_VERSION already installed, no action needed."
+            exit 0
+        fi
+
     fi
-
-    # Detect skipped minor versions by parsing CHANGES.md.
-    # Only the migration script for the current image version is available,
-    # so skipping a minor version would silently miss its schema changes.
-    CHANGES_FILE="$ZNUNY_STAGING/CHANGES.md"
-    if [ ! -f "$CHANGES_FILE" ]; then
-        echo "ERROR: $CHANGES_FILE not found — cannot verify upgrade path" >&2
-        exit 1
-    fi
-
-    SKIPPED=$(grep '^# [0-9]' "$CHANGES_FILE" \
-        | sed 's/^# \([0-9]*\)\.\([0-9]*\)\.[0-9]* .*/\1 \2/' \
-        | sort -k1,1n -k2,2n -u \
-        | while read -r maj min; do
-            if { [ "$maj" -gt "$DATABASE_MAJOR" ] || \
-                { [ "$maj" -eq "$DATABASE_MAJOR" ] && [ "$min" -gt "$DATABASE_MINOR" ]; }; } && \
-            { [ "$maj" -lt "$NEW_MAJOR" ] || \
-                { [ "$maj" -eq "$NEW_MAJOR" ] && [ "$min" -lt "$NEW_MINOR" ]; }; }; then
-                printf '%s.%s ' "$maj" "$min"
-            fi
-        done)
-
-    if [ -n "$SKIPPED" ]; then
-        echo "ERROR: upgrade from $DATABASE_VERSION to $NEW_VERSION skips minor versions: $SKIPPED" >&2
-        echo "ERROR: upgrade step by step through each minor version." >&2
-        exit 1
-    fi
-
-else
-    # Database is up to date, but not the local files (for example second frontend server started)
-
-    if [ "$INSTALLED_VERSION" != "$NEW_VERSION" ]; then
-        INSTALL_STATE="local"
-    else
-        echo "Znuny $NEW_VERSION already installed, no action needed."
-        exit 0
-    fi
-
 fi
 
 # Install, Update, Upgrade
 case "${INSTALL_STATE,,}" in
     install)
         echo "Installing Znuny ${NEW_VERSION}..."
-        install
+        znuny_install
         echo "Installation complete"
         # echo "For initial setup, visit http://${FQDN}:${WEB_PORT}/znuny/installer.pl"
         ;;
