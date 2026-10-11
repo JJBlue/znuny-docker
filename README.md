@@ -70,20 +70,41 @@ Database settings are written into `Config.pm` **once**, when the file is create
 | db_password_${ZNUNY_INSTANCE} | !mysecretpwd! | Password of the database user |
 | znuny_admin_password_${ZNUNY_INSTANCE} | !mysecretpwd! | Password of the Znuny admin `root@localhost` (set on first install) Password |
 
-## Run Docker
-### Run Docker default
+## Run
+
 ```
-docker compose up -d
+./install.sh                       # httpd + daemon, external database
+./install.sh --with-db             # + MariaDB container
+./install.sh --no-daemon           # httpd only
+./install.sh --build               # rebuild images (after changing ZNUNY_VERSION)
 ```
 
-### Run Docker with different instances
-1. Create a copy from .env
-2. Rename the copy f.e. to .env.instance1
-3. Run
+Follow the first installation (takes a few minutes):
+
 ```
-docker compose --env-file .env.instance1 up -d
-docker compose --env-file .env.instance2 up -d
+docker logs -f znuny_httpd_default
 ```
+
+### Different instances
+
+1. Copy `src/.env` to f.e. `src/.env.instance1`
+2. Change at least `ZNUNY_INSTANCE`, `WEB_PORT` (and `ZNUNY_NodeID` for a clustered setup)
+3. Create the secrets for the instance (or let `install.sh` do it)
+4. Run
+
+```
+./install.sh --env-file .env.instance1
+./install.sh --env-file .env.instance2
+```
+
+### Without install.sh
+
+```
+cd src
+docker compose --env-file .env -f docker-compose.yml -f docker-compose-daemon.yml [-f docker-compose-db.yml] up -d
+```
+
+`docker-compose-daemon.yml` and `docker-compose-db.yml` are overrides: they only work together with `docker-compose.yml`.
 
 ### Run Docker with Mariadb
 Only currently works with one instance only
@@ -91,22 +112,36 @@ Only currently works with one instance only
 docker compose -f docker-compose.yml -f docker-compose-db.yml up -d
 ```
 
-# Znuny Commandline
-
 ## Running console commands
+
 Directly from the host:
+
 ```
-docker exec -u znuny znuny_httpd /opt/znuny/bin/znuny.Console.pl
+docker exec -u znuny znuny_httpd_default /opt/znuny/bin/znuny.Console.pl
 ```
-_znuny_httpd_ - container name or id<br><br>
+
 Or from an interactive shell inside the container:
+
 ```
-docker exec -ti -u znuny znuny_httpd /bin/bash
+docker exec -ti -u znuny znuny_httpd_default /bin/bash
 ./bin/znuny.Console.pl
 ```
 
-## Starting / stopping the daemon:
+## Starting / stopping the daemon
+
+The daemon runs in its own container and is supervised by a watchdog:
+
 ```
-docker exec -u znuny znuny_httpd /opt/znuny/bin/otrs.Daemon.pl stop
-docker exec -u znuny znuny_httpd /opt/znuny/bin/otrs.Daemon.pl start
+docker exec -u znuny znuny_daemon_default /opt/znuny/bin/znuny.Daemon.pl status
+docker exec -u znuny znuny_daemon_default /opt/znuny/bin/znuny.Daemon.pl stop    # the watchdog starts it again
+docker restart znuny_daemon_default
 ```
+
+# Updates
+
+Change `ZNUNY_VERSION` and run `./install.sh --build`. On start the httpd container compares the version in the
+database (`ZDocker`) with the image and runs the migration. Stop the daemon container first
+(`docker stop znuny_daemon_<instance>`) and make a database backup. The following is refused on purpose:
+
+- downgrades
+- skipping a minor version (7.0 -> 7.2): upgrade step by step
