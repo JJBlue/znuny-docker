@@ -66,6 +66,7 @@ services:
       DB_PORT: ${DB_PORT:-3306}
       DB_NAME: ${DB_NAME:-znuny}
       DB_USER: ${DB_USER:-znuny}
+      WEB_PORT: ${WEB_PORT:-80}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost/znuny/index.pl", "-o", "/dev/null"]

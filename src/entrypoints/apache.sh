@@ -1,12 +1,9 @@
 #!/bin/bash
 
 # Stop on Error
-set -e
+set -eu
 
-if [[ -n ${WEB_PORT:-} ]]; then
-    echo "WEB_PORT is not set"
-    exit 1
-fi
+export WEB_PORT
 
 # Setup Znuny
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

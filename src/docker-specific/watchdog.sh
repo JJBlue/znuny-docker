@@ -2,8 +2,7 @@
 
 set -eu
 
-ZNUNY_HOME="/opt/znuny"
-cd "$ZNUNY_HOME"
+ZNUNY_HOME=${ZNUNY_HOME}
 
 echo 'Checking modules...'
 $ZNUNY_HOME/bin/znuny.CheckModules.pl --all

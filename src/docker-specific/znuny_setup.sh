@@ -1,25 +1,22 @@
 #!/bin/bash
 
-set -e
+set -eu
 
 ####################################################
 # Variables - Some are used from the znuny.sh file #
 ####################################################
-
-#STAGING_DIR TODO
 
 # INSTALL_STATE: install, update, upgrade, local (only if local Files are not up to date, for example second frontend server)
 INSTALL_STATE="upgrade"
 
 INSTALLED_VERSION=$(grep 'VERSION' "${ZNUNY_HOME}/RELEASE" 2>/dev/null | head -1 | awk '{print $NF}')
 if [ -z "$INSTALLED_VERSION" ]; then
-    echo "ERROR: could not determine release version from ${ZNUNY_HOME}/RELEASE" >&2
+    echo "Info: Could not determine release version from ${ZNUNY_HOME}/RELEASE" >&2
 fi
 
-# TODO znuny-staging
-NEW_VERSION=$(grep 'VERSION' "/opt/znuny-staging/RELEASE" 2>/dev/null | head -1 | awk '{print $NF}')
+NEW_VERSION=$(grep 'VERSION' "${ZNUNY_STAGING}/RELEASE" 2>/dev/null | head -1 | awk '{print $NF}')
 if [ -z "$NEW_VERSION" ]; then
-    echo "ERROR: could not determine release version from /opt/znuny-staging/RELEASE" >&2
+    echo "ERROR: Could not determine release version from ${ZNUNY_STAGING}/RELEASE" >&2
     exit 1
 fi
 NEW_MAJOR=$(echo "$NEW_VERSION" | cut -d. -f1)
@@ -57,7 +54,7 @@ mysql_import() {
 ##################
 
 # Database Type
-DB_TYPE="$(sed -n '/^[[:space:]]*#/!s/.*DBI:\([^:]*\):.*/\1/p' ${ZNUNY_HOME}/Kernel/Config.pm)"
+DB_TYPE="$(sed -n '/^[[:space:]]*#/!s/.*DBI:\([^:]*\):.*/\1/p' ${ZNUNY_CFG})"
 
 # Search for Database Type and do stuff
 case "${DB_TYPE,,}" in
@@ -116,7 +113,7 @@ esac
 # Install, Update, Upgrade - Script Functions #
 ###############################################
 znuny_install() {
-    # TODO when did the files copy to dst??
+    znuny_helper_sync_files
 
     for SQL in schema initial_insert schema-post
     do
@@ -177,7 +174,9 @@ znuny_helper_sync_files() {
         --exclude='var/sessions/' \
         --exclude='var/httpd/htdocs/custom/' \
         --exclude='Kernel/Config.pm' \
-        "$STAGING_DIR/" "$ZNUNY_HOME/" 2>&1 | grep -v "failed to set times on" || true
+        "$ZNUNY_STAGING/" "$ZNUNY_HOME/" 2>&1 | grep -v "failed to set times on" || true
+
+        $ZNUNY_HOME/bin/znuny.SetPermissions.pl --znuny-user ${ZNUNY_USER}
 }
 
 
@@ -204,7 +203,7 @@ if [ "$DATABASE_VERSION" != "$NEW_VERSION" ]; then
     # Detect skipped minor versions by parsing CHANGES.md.
     # Only the migration script for the current image version is available,
     # so skipping a minor version would silently miss its schema changes.
-    CHANGES_FILE="$STAGING_DIR/CHANGES.md"
+    CHANGES_FILE="$ZNUNY_STAGING/CHANGES.md"
     if [ ! -f "$CHANGES_FILE" ]; then
         echo "ERROR: $CHANGES_FILE not found — cannot verify upgrade path" >&2
         exit 1

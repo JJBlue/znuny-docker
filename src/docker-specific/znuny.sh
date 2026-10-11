@@ -1,15 +1,18 @@
 #!/bin/bash
 
 # Stop on Error
-set -e
+set -eu
 
 # TODO own Downgrade: FAIL --> Change Version File manually to continue
 
 PERSISTENT_CFG="/persistent/Config.pm"
-export ZNUNY_HOME="/opt/znuny"
-ZNUNY_CFG="${ZNUNY_HOME}/Kernel/Config.pm"
-ZNUNY_USER="${ZNUNY_USER}"
+export ZNUNY_HOME=${ZNUNY_HOME}
+export ZNUNY_CFG="${ZNUNY_HOME}/Kernel/Config.pm"
+export ZNUNY_USER="${ZNUNY_USER}"
 ZNUNY_NodeID=${ZNUNY_NodeID:-1}
+
+export ZNUNY_STAGING=${ZNUNY_STAGING}
+export ZNUNY_STAGING_CFG="${ZNUNY_STAGING}/Kernel/Config.pm"
 
 APACHE_USER=${APACHE_RUN_USER:-www-data}
 
@@ -32,7 +35,7 @@ chown -R ${ZNUNY_USER}:${APACHE_USER} /persistent
 # Create Config.pm if it doesn't already exist
 if [ ! -f "$PERSISTENT_CFG" ]; then
     echo "Persistent Config.pm not found, seeding it"
-    cp "${ZNUNY_CFG}.dist" "$PERSISTENT_CFG"
+    cp "${ZNUNY_STAGING_CFG}.dist" "$PERSISTENT_CFG"
 
     sed -i "s/\(\$Self->{DatabaseHost}\s*=\s*\)'[^']*';/\1'$DB_HOST';/" "$PERSISTENT_CFG"
     sed -i "s/\(\$Self->{Database}\s*=\s*\)'[^']*';/\1'$DB_NAME';/"     "$PERSISTENT_CFG"
@@ -47,29 +50,37 @@ if [ ! -f "$PERSISTENT_CFG" ]; then
 
     chown ${ZNUNY_USER}:${APACHE_USER} "$PERSISTENT_CFG"
     chmod 770 "$PERSISTENT_CFG"
-else
-    echo "Using persistent Config.pm"
+fi
+
+# Create Config.pm symlink if not exist
+if [ ! -L "${ZNUNY_HOME}/Kernel/Config.pm" ]; then
+    echo "Linking Persistent Config.pm"
+    mkdir -p "${ZNUNY_HOME}/Kernel"
+    ln -sf "$PERSISTENT_CFG" "$ZNUNY_CFG"
+fi
+
+###############
+# Setup Znuny #
+###############
+
+if [[ -v WEB_PORT ]]; then
+    gosu ${ZNUNY_USER} /usr/local/bin/znuny_setup.sh 2>&1 || exit $?
+
+    # Welcome message
+    echo "Agent Site http://${FQDN}:${WEB_PORT}/znuny/index.pl"
+    echo "Customer Site http://${FQDN}:${WEB_PORT}/znuny/custom.pl"
 fi
 
 ######################
 # Setup Znuny Config #
 ######################
 
-# Create Config.pm symlink if not exist
-if [ ! -L ${ZNUNY_HOME}/Kernel/Config.pm ]; then
-    ln -sf "$PERSISTENT_CFG" "$ZNUNY_CFG"
-    $ZNUNY_HOME/bin/znuny.SetPermissions.pl --znuny-user ${ZNUNY_USER}
+# Setup Apache Znuny config (shared volume is now available)
+if [ ! -f /etc/apache2/conf-available/zzz_znuny.conf ]; then
+    ln -s ${ZNUNY_HOME}/scripts/apache2-httpd.include.conf /etc/apache2/conf-available/zzz_znuny.conf
+    a2enconf zzz_znuny
 fi
 
-
-### TODO
-# Setup Apache Znuny config (shared volume is now available)
-#if [ ! -f /etc/apache2/conf-available/zzz_znuny.conf ]; then
-#    ln -s ${ZNUNY_HOME}/scripts/apache2-httpd.include.conf /etc/apache2/conf-available/zzz_znuny.conf
-#    a2enconf zzz_znuny
-#fi
-
-### TODO
 # Set default interface redirect
 ZNUNY_DEFAULT_INTERFACE="${ZNUNY_DEFAULT_INTERFACE:-agent}"
 if [ "$ZNUNY_DEFAULT_INTERFACE" = "customer" ]; then
@@ -78,19 +89,3 @@ else
     DEFAULT_PAGE="index.pl"
 fi
 sed -i "s|URL=/znuny/[a-z_]*\.pl|URL=/znuny/${DEFAULT_PAGE}|" ${ZNUNY_HOME}/var/httpd/htdocs/index.html
-
-
-
-###############
-# Setup Znuny #
-###############
-
-### TODO
-if [[ -v WEB_PORT ]]; then
-    gosu ${ZNUNY_USER} /usr/local/bin/znuny_setup.sh
-    # TODO znuny_helper_install.sh exit with error code --> exit too
-
-    # Welcome message
-    echo "Agent Site http://${FQDN}:${WEB_PORT}/znuny/index.pl"
-    echo "Customer Site http://${FQDN}:${WEB_PORT}/znuny/custom.pl"
-fi
