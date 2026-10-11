@@ -2,16 +2,15 @@
 
 set -eu
 
-ZNUNY_HOME=${ZNUNY_HOME}
+: "${ZNUNY_HOME:?ZNUNY_HOME is not set}"
 
 echo 'Checking modules...'
-$ZNUNY_HOME/bin/znuny.CheckModules.pl --all
+"${ZNUNY_HOME}/bin/znuny.CheckModules.pl" --all
 
 echo 'Starting Watchdog'
 
 CHECK_INTERVAL=30   # seconds
 MAX_FAILS=10        # 10 × 30s = 5 minutes
-
 FAILS=0
 DAEMON="${ZNUNY_HOME}/bin/znuny.Daemon.pl"
 
@@ -35,7 +34,7 @@ while true; do
     fi
 
     if [ "$FAILS" -ge "$MAX_FAILS" ]; then
-        echo "Znuny down for 5 minutes — exiting container"
+        echo "Znuny down for $((MAX_FAILS * CHECK_INTERVAL)) seconds - exiting container"
         exit 1
     fi
 

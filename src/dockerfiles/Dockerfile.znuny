@@ -127,7 +127,7 @@ COPY --from=builder /opt/perl5 /opt/perl5
 # Verify
 RUN perl -MData::UUID -e 'print "Data::UUID OK\n"' && \
     perl -MNet::SAML2 -e 'print "Net::SAML2 OK\n"' && \
-    perl -DBD::ODBC -e 'print "DBD::ODBC OK\n"'
+    perl -MDBD::ODBC -e 'print "DBD::ODBC $DBD::ODBC::VERSION OK\n"'
 
 # Create Znuny user
 RUN useradd -d ${ZNUNY_HOME} -c "Znuny user" -g ${APACHE_USER} -s /bin/bash -M -N ${ZNUNY_USER}
@@ -232,10 +232,6 @@ RUN apt-get update && \
 
 # Install Perl Modules
 COPY --from=builder /opt/perl5 /opt/perl5
-# Verify - Again
-RUN perl -MData::UUID -e 'print "Data::UUID OK\n"' && \
-    perl -Net::SAML2 -e 'print "Net::SAML2 OK\n"' && \
-    perl -DBD::ODBC -e 'print "DBD::ODBC OK\n"'
 
 # Perl Configuration
 # Enable MySQL modules in Apache Perl startup

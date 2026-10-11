@@ -1,6 +1,8 @@
 #!/bin/bash
+# Install / update logic. Runs as the znuny user (called from znuny.sh).
 
 set -eu
+die() { echo "ERROR: $*" >&2; exit 1; }
 
 ####################################################
 # Variables - Some are used from the znuny.sh file #
@@ -8,6 +10,7 @@ set -eu
 
 # INSTALL_STATE: install, update, upgrade, local (only if local Files are not up to date, for example second frontend server)
 INSTALL_STATE=
+UPDATE_TYPE=
 
 INSTALLED_VERSION=$(grep 'VERSION' "${ZNUNY_HOME}/RELEASE" 2>/dev/null | head -1 | awk '{print $NF}')
 if [ -z "$INSTALLED_VERSION" ]; then
@@ -30,21 +33,25 @@ DATABASE_MINOR=
 # Functions #
 #############
 
+# true if $1 is a higher version than $2
+version_gt() {
+    [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n1)" = "$1" ]
+}
+
+# The password is passed via MYSQL_PWD (not -p<password>): it would be visible in "ps"
+MYSQL_PWD="$(cat "$DB_PASSWORD_FILE")"
+export MYSQL_PWD
+
+mysql_command() {
+    mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -D "$DB_NAME" "$@"
+}
+
 mysql_query() {
-    mysql -h "$DB_HOST" \
-        -P "$DB_PORT" \
-        -u "$DB_USER" \
-        -p"$(cat "$DB_PASSWORD_FILE")" \
-        -D "$DB_NAME" \
-        -Nse "$1" 2>/dev/null
+    mysql_command -Nse "$1" 2>/dev/null
 }
 
 mysql_import() {
-    mysql -h "$DB_HOST" \
-        -P "$DB_PORT" \
-        -u "$DB_USER" \
-        -p"$(cat "$DB_PASSWORD_FILE")" \
-        "$DB_NAME" < "$1"
+    mysql_command < "$1"
 }
 
 
@@ -54,7 +61,7 @@ mysql_import() {
 ##################
 
 # Database Type
-DB_TYPE="$(sed -n '/^[[:space:]]*#/!s/.*DBI:\([^:]*\):.*/\1/p' ${ZNUNY_CFG})"
+DB_TYPE="$(sed -n '/^[[:space:]]*#/!s/.*DBI:\([^:]*\):.*/\1/p' "${ZNUNY_CFG}" | head -1)"
 
 # Search for Database Type and do stuff
 case "${DB_TYPE,,}" in
@@ -89,21 +96,17 @@ case "${DB_TYPE,,}" in
                 INSTALL_STATE="install"
             fi
         else
-            echo "SQL authentication failed"
-            exit 1
+            die "SQL authentication failed"
         fi
         ;;
     pq)
-        echo "Database Pq is not checked"
-        exit 1
+        die "Database Pq is not checked"
         ;;
     oracle)
-        echo "Database Oracle is not checked"
-        exit 1
+        die "Database Oracle is not checked"
         ;;
     *)
-        echo "Database is unknown"
-        exit 1
+        die "Database is unknown"
         ;;
 esac
 
@@ -119,14 +122,17 @@ znuny_install() {
     do
     mysql_import "${ZNUNY_HOME}/scripts/database/${SQL}.mysql.sql"
     done
-    $ZNUNY_HOME/bin/znuny.Console.pl Maint::Config::Rebuild
-    $ZNUNY_HOME/bin/znuny.Console.pl Maint::Loader::CacheGenerate
-    $ZNUNY_HOME/bin/znuny.Console.pl Maint::Log::Clear
-    $ZNUNY_HOME/bin/znuny.Console.pl Admin::Config::Update --setting-name SecureMode --value 1
-    $ZNUNY_HOME/bin/znuny.Console.pl Admin::Config::Update --setting-name SystemID --value "$(printf "%02d\n" $((RANDOM % 99 + 1)))"
-    $ZNUNY_HOME/bin/znuny.Console.pl Admin::Package::Install 'Znuny Open Source Add-ons:Znuny-ContainerHelper'
-    $ZNUNY_HOME/bin/znuny.Console.pl Maint::Cache::Delete
-    $ZNUNY_HOME/bin/znuny.Console.pl Admin::User::SetPassword root@localhost "$(cat "$ZNUNY_ADMIN_PASSWORD_FILE")"
+    "$ZNUNY_HOME/bin/znuny.Console.pl" Maint::Config::Rebuild
+    "$ZNUNY_HOME/bin/znuny.Console.pl" Maint::Loader::CacheGenerate
+    "$ZNUNY_HOME/bin/znuny.Console.pl" Maint::Log::Clear
+    "$ZNUNY_HOME/bin/znuny.Console.pl" Admin::Config::Update --setting-name SecureMode --value 1
+    "$ZNUNY_HOME/bin/znuny.Console.pl" Admin::Config::Update --setting-name SystemID --value "$(printf '%02d' $((RANDOM % 99 + 1)))"
+    # The package repository is online: an outage must not abort the whole installation
+    if ! "$ZNUNY_HOME/bin/znuny.Console.pl" Admin::Package::Install 'Znuny Open Source Add-ons:Znuny-ContainerHelper'; then
+        echo "WARNING: package Znuny-ContainerHelper could not be installed - install it later manually" >&2
+    fi
+    "$ZNUNY_HOME/bin/znuny.Console.pl" Maint::Cache::Delete
+    "$ZNUNY_HOME/bin/znuny.Console.pl" Admin::User::SetPassword root@localhost "$(cat "$ZNUNY_ADMIN_PASSWORD_FILE")"
 }
 
 znuny_upgrade() {
@@ -187,15 +193,17 @@ znuny_helper_sync_files() {
 
 # Check Version changes: If INSTALL_STATE is not yet set
 if [ -z "$INSTALL_STATE" ]; then
-    # TODO Check better
     if [ "$DATABASE_VERSION" != "$NEW_VERSION" ]; then
         # Database is not up to date
 
-        # TODO Check better
+        # Downgrades are not supported by Znuny - the schema would not match the code
+        if version_gt "$DATABASE_VERSION" "$NEW_VERSION"; then
+            die "Database is at version $DATABASE_VERSION, the image only has $NEW_VERSION (downgrade is not supported). Use ZNUNY_VERSION >= $DATABASE_VERSION."
+        fi
+
         if [ "$DATABASE_MAJOR" != "$NEW_MAJOR" ]; then
             UPDATE_TYPE="major"
             INSTALL_STATE="upgrade"
-        # TODO Check better
         elif [ "$DATABASE_MINOR" != "$NEW_MINOR" ]; then
             UPDATE_TYPE="minor"
             INSTALL_STATE="upgrade"
@@ -209,8 +217,7 @@ if [ -z "$INSTALL_STATE" ]; then
         # so skipping a minor version would silently miss its schema changes.
         CHANGES_FILE="$ZNUNY_STAGING/CHANGES.md"
         if [ ! -f "$CHANGES_FILE" ]; then
-            echo "ERROR: $CHANGES_FILE not found — cannot verify upgrade path" >&2
-            exit 1
+            die "$CHANGES_FILE not found - cannot verify upgrade path"
         fi
 
         SKIPPED=$(grep '^# [0-9]' "$CHANGES_FILE" \
@@ -227,8 +234,7 @@ if [ -z "$INSTALL_STATE" ]; then
 
         if [ -n "$SKIPPED" ]; then
             echo "ERROR: upgrade from $DATABASE_VERSION to $NEW_VERSION skips minor versions: $SKIPPED" >&2
-            echo "ERROR: upgrade step by step through each minor version." >&2
-            exit 1
+            die "upgrade step by step through each minor version."
         fi
 
     else
@@ -276,15 +282,12 @@ esac
 # Create or Set Version
 case "${DB_TYPE,,}" in
     mysql)
-        # Check if Table exists before
-        if ! mysql_query "SHOW TABLES LIKE 'ZDocker'" | grep -q .; then
-            mysql_query "
-                CREATE TABLE IF NOT EXISTS ZDocker (
-                    property_name VARCHAR(255) PRIMARY KEY,
-                    property_value TEXT
-                )
-            "
-        fi
+        mysql_query "
+            CREATE TABLE IF NOT EXISTS ZDocker (
+                property_name VARCHAR(255) PRIMARY KEY,
+                property_value TEXT
+            )
+        "
 
         # Set Version in Database
         mysql_query "

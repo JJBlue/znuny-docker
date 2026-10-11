@@ -1,13 +1,17 @@
 #!/bin/bash
 
 # Stop on Error
-set -eu
+set -euo pipefail
+die() { echo "ERROR: $*" >&2; exit 1; }
 
-PERSISTENT_CFG="/persistent/Config.pm"
+PERSISTENT_DIR="/persistent"
+PERSISTENT_CFG="${PERSISTENT_DIR}/Config.pm"
+
 export ZNUNY_HOME=${ZNUNY_HOME}
 export ZNUNY_CFG="${ZNUNY_HOME}/Kernel/Config.pm"
 export ZNUNY_USER="${ZNUNY_USER}"
 ZNUNY_NodeID=${ZNUNY_NodeID:-1}
+ZNUNY_DEFAULT_INTERFACE="${ZNUNY_DEFAULT_INTERFACE}"
 
 export ZNUNY_STAGING=${ZNUNY_STAGING}
 export ZNUNY_STAGING_CFG="${ZNUNY_STAGING}/Kernel/Config.pm"
@@ -23,19 +27,23 @@ export ZNUNY_ADMIN_PASSWORD_FILE="/run/secrets/znuny_admin_password"
 
 FQDN="$(hostname -f)"
 
+# Input validation (these values end up in Config.pm)
+[[ "$ZNUNY_NodeID" =~ ^[0-9]+$ ]] || die "ZNUNY_NodeID must be a number (got '$ZNUNY_NodeID')"
+[[ "$DB_PORT" =~ ^[0-9]+$ ]]      || die "DB_PORT must be a number (got '$DB_PORT')"
+
 
 ####################
 # Setup Persistent #
 ####################
 
-# Create Folder and set rights to it
-[ "$(stat -c '%U:%G' /persistent)" = "${ZNUNY_USER}:${APACHE_USER}" ] || chown -R "${ZNUNY_USER}:${APACHE_USER}" /persistent
+# Set rights on the persistent folder
+[ "$(stat -c '%U:%G' "$PERSISTENT_DIR")" = "${ZNUNY_USER}:${APACHE_USER}" ] || chown -R "${ZNUNY_USER}:${APACHE_USER}" "$PERSISTENT_DIR"
 
 if [ ! -f "${ZNUNY_HOME}/bin/znuny.SetPermissions.pl" ]; then
     echo "Setting folder permissions"
     mkdir -p "${ZNUNY_HOME}/bin"
     cp "${ZNUNY_STAGING}/bin/znuny.SetPermissions.pl" "${ZNUNY_HOME}/bin/znuny.SetPermissions.pl"
-    $ZNUNY_HOME/bin/znuny.SetPermissions.pl --znuny-user ${ZNUNY_USER}
+    "$ZNUNY_HOME/bin/znuny.SetPermissions.pl" --znuny-user "${ZNUNY_USER}"
 fi
 
 # Create Config.pm if it doesn't already exist
@@ -54,26 +62,27 @@ if [ ! -f "$PERSISTENT_CFG" ]; then
         sed -i "s/^\s*return 1;/\\\$Self->{NodeID} = ${ZNUNY_NodeID};\n    return 1;/" "$PERSISTENT_CFG"
     fi
 
-    chown ${ZNUNY_USER}:${APACHE_USER} "$PERSISTENT_CFG"
-    chmod 770 "$PERSISTENT_CFG"
+    chown "${ZNUNY_USER}:${APACHE_USER}" "$PERSISTENT_CFG"
+    chmod 660 "$PERSISTENT_CFG"
 fi
 
 # Create Config.pm symlink if not exist
 if [ ! -L "${ZNUNY_HOME}/Kernel/Config.pm" ]; then
     echo "Linking Persistent Config.pm"
-    
+
     mkdir -p "${ZNUNY_HOME}/Kernel"
-    chown ${ZNUNY_USER}:${APACHE_USER} "${ZNUNY_HOME}/Kernel"
+    chown "${ZNUNY_USER}:${APACHE_USER}" "${ZNUNY_HOME}/Kernel"
 
     ln -sf "$PERSISTENT_CFG" "$ZNUNY_CFG"
 fi
+
 
 ###############
 # Setup Znuny #
 ###############
 
 if [[ -v WEB_PORT ]]; then
-    gosu ${ZNUNY_USER} /usr/local/bin/znuny_setup.sh 2>&1 || exit $?
+    gosu "${ZNUNY_USER}" /usr/local/bin/znuny_setup.sh 2>&1 || exit $?
 
     # Setup Apache Znuny config (shared volume is now available)
     if [ ! -f /etc/apache2/conf-available/zzz_znuny.conf ]; then
@@ -81,16 +90,20 @@ if [[ -v WEB_PORT ]]; then
         a2enconf zzz_znuny
     fi
 
-    # Set default interface redirect
-    ZNUNY_DEFAULT_INTERFACE="${ZNUNY_DEFAULT_INTERFACE:-agent}"
-    if [ "$ZNUNY_DEFAULT_INTERFACE" = "customer" ]; then
-        DEFAULT_PAGE="customer.pl"
-    else
-        DEFAULT_PAGE="index.pl"
-    fi
+    # Redirect "/" to the default interface
+    case "$ZNUNY_DEFAULT_INTERFACE" in
+        customer)
+            DEFAULT_PAGE="customer.pl" ;;
+        agent)
+            DEFAULT_PAGE="index.pl" ;;
+        *)
+            echo "WARNING: unknown ZNUNY_DEFAULT_INTERFACE '${ZNUNY_DEFAULT_INTERFACE}', using 'agent'" >&2
+            DEFAULT_PAGE="index.pl"
+            ;;
+    esac
     sed -i "s|URL=/znuny/[a-z_]*\.pl|URL=/znuny/${DEFAULT_PAGE}|" ${ZNUNY_HOME}/var/httpd/htdocs/index.html
 
     # Welcome message
-    echo "Agent Site http://${FQDN}:${WEB_PORT}/znuny/index.pl"
-    echo "Customer Site http://${FQDN}:${WEB_PORT}/znuny/custom.pl"
+    echo "Agent Site    http://${FQDN}:${WEB_PORT}/znuny/index.pl"
+    echo "Customer Site http://${FQDN}:${WEB_PORT}/znuny/customer.pl"
 fi
