@@ -1,7 +1,7 @@
 secrets:
   db_password:
     file: ./secrets/db_password_${ZNUNY_INSTANCE}
-  znuny_admin:
+  znuny_admin_password:
     file: ./secrets/znuny_admin_password_${ZNUNY_INSTANCE}
 
 networks:
@@ -60,7 +60,7 @@ services:
       - znuny-net
     secrets:
       - db_password
-      - znuny_admin
+      - znuny_admin_password
     environment:
       DB_HOST: ${DB_HOST:-znuny-db}
       DB_PORT: ${DB_PORT:-3306}
@@ -72,7 +72,7 @@ services:
       test: ["CMD", "curl", "-sf", "http://localhost/znuny/index.pl", "-o", "/dev/null"]
       interval: 30s
       timeout: 10s
-      retries: 3
+      retries: 6
       start_period: 300s
     volumes:
       - Znuny:/opt/znuny

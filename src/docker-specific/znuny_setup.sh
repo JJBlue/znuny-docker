@@ -126,7 +126,7 @@ znuny_install() {
     $ZNUNY_HOME/bin/znuny.Console.pl Admin::Config::Update --setting-name SystemID --value "$(printf "%02d\n" $((RANDOM % 99 + 1)))"
     $ZNUNY_HOME/bin/znuny.Console.pl Admin::Package::Install 'Znuny Open Source Add-ons:Znuny-ContainerHelper'
     $ZNUNY_HOME/bin/znuny.Console.pl Maint::Cache::Delete
-    $ZNUNY_HOME/bin/znuny.Console.pl Admin::User::SetPassword root@localhost "$ZNUNY_ADMIN_PASS"
+    $ZNUNY_HOME/bin/znuny.Console.pl Admin::User::SetPassword root@localhost "$(cat "$ZNUNY_ADMIN_PASSWORD_FILE")"
 }
 
 znuny_upgrade() {
