@@ -11,7 +11,6 @@ export ZNUNY_HOME=${ZNUNY_HOME}
 export ZNUNY_CFG="${ZNUNY_HOME}/Kernel/Config.pm"
 export ZNUNY_USER="${ZNUNY_USER}"
 ZNUNY_NodeID=${ZNUNY_NodeID:-1}
-ZNUNY_DEFAULT_INTERFACE="${ZNUNY_DEFAULT_INTERFACE}"
 
 export ZNUNY_STAGING=${ZNUNY_STAGING}
 export ZNUNY_STAGING_CFG="${ZNUNY_STAGING}/Kernel/Config.pm"
@@ -87,6 +86,8 @@ fi
 ###############
 
 if [[ -v WEB_PORT ]]; then
+    ZNUNY_DEFAULT_INTERFACE="${ZNUNY_DEFAULT_INTERFACE}"
+
     gosu "${ZNUNY_USER}" /usr/local/bin/znuny_setup.sh 2>&1 || exit $?
 
     # Setup Apache Znuny config (shared volume is now available)
