@@ -1,5 +1,7 @@
 services:
   znuny-daemon:
+    image: znuny-daemon:${ZNUNY_VERSION}
+    pull_policy: never
     build:
       context: .
       dockerfile: ./dockerfiles/Dockerfile.znuny
@@ -32,8 +34,10 @@ services:
       ZNUNY_NodeID: ${ZNUNY_NodeID:-1}
     restart: unless-stopped
     volumes:
-      - Znuny:/opt/znuny
+      - LinuxTruststore:/usr/local/share/ca-certificates
+      - ZnunyApp:/opt/znuny
       - ZnunyLog:/opt/znuny/var/log
       - ZnunyArticle:/opt/znuny/var/article
       - ZnunyHTDocs:/opt/znuny/var/httpd/htdocs/custom
       - ZnunyPersistent:/persistent
+      - ZnunySMIME:/opt/znuny_volumes/smime

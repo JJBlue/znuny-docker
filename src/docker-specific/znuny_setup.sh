@@ -265,19 +265,19 @@ case "${INSTALL_STATE,,}" in
         # echo "For initial setup, visit http://${FQDN}:${WEB_PORT}/znuny/installer.pl"
         ;;
     update)
-        echo "Version change detected: $DATABASE_VERSION -> $NEW_VERSION ($UPDATE_TYPE update)"
+        echo "Version change detected: $DATABASE_VERSION -> $NEW_VERSION (update - $UPDATE_TYPE)"
         echo "Updating Znuny..."
         znuny_upgrade
         echo "Update complete"
         ;;
     upgrade)
-        echo "Version change detected: $DATABASE_VERSION -> $NEW_VERSION ($UPDATE_TYPE update)"
+        echo "Version change detected: $DATABASE_VERSION -> $NEW_VERSION (upgrade - $UPDATE_TYPE)"
         echo "Upgrading Znuny..."
         znuny_upgrade
         echo "Upgrade complete"
         ;;
     local)
-        echo "Version change detected: $DATABASE_VERSION -> $NEW_VERSION ($UPDATE_TYPE update)"
+        echo "File change detected: $DATABASE_VERSION -> $NEW_VERSION (local)"
         echo "Update Znuny Files..."
         znuny_local_update
         echo "Update complete"

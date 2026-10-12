@@ -80,6 +80,12 @@ if [ ! -L "${ZNUNY_HOME}/Kernel/Config.pm" ]; then
     ln -sf "$PERSISTENT_CFG" "$ZNUNY_CFG"
 fi
 
+###############
+# Setup Linux #
+###############
+
+# Update certificate truststore upon change
+update-ca-certificates
 
 ###############
 # Setup Znuny #

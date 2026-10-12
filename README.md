@@ -6,6 +6,7 @@
 - External database, or optional MariaDB container
 - Separate containers for Apache (httpd) and the Znuny daemon (when only frontend-server is needed)
 - Automatic install / update / upgrade of Znuny on container start (version is tracked in the table `ZDocker`)
+- Trust own CA-Certificates
 - SSO (Kerberos; Apache accept Configuration) - Missing/Check?
 
 ## Prerequisites (server, not docker image)
@@ -15,25 +16,37 @@
 ## Folder structure on the host
 
     ${ZNUNY_PERSISTENT_FOLDER}
-    └── ${ZNUNY_INSTANCE}
-        ├── znuny            # Znuny application files (/opt/znuny in the container)
-        ├── persistent
-        │   └── Config.pm    # seeded on first start, then yours to edit
-        ├── log
-        ├── article
-        └── htdocs_custom
+      ├── os                    # Debian Volumes
+      │   └── ca-certificates   # /usr/local/share/ca-certificates
+      └── instances             # Znuny Volumes
+          └── ${ZNUNY_INSTANCE}
+              ├── app                 # Znuny application files (/opt/znuny in the container)
+              ├── persistent
+              │   └── Config.pm       # seeded on first start, then yours to edit
+              ├── log
+              ├── article
+              ├── htdocs_custom
+              └── smime
+                ├── certs
+                └── private
 
 <details>
   <summary>Default</summary>
 
     /opt/znuny
+    ├── os
+    │   └── ca-certificates
     └── default
-        ├── znuny
-        ├── persistent
-        │   └── Config.pm
-        ├── log
-        ├── article
-        └── htdocs_custom
+        └── znuny
+            ├── app
+            ├── persistent
+            │   └── Config.pm
+            ├── log
+            ├── article
+            ├── htdocs_custom
+            └── smime
+              ├── certs
+              └── private
 </details>
 
 <br>

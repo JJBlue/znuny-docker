@@ -11,41 +11,57 @@ secrets:
 networks:
   znuny-net:
     driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: "znuny-${ZNUNY_INSTANCE}"
 
 volumes:
-  Znuny:
+  LinuxTruststore:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: ${ZNUNY_PERSISTENT_FOLDER}/${ZNUNY_INSTANCE}/znuny
+      device: ${ZNUNY_PERSISTENT_FOLDER}/os/ca-certificates
+  ZnunyApp:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${ZNUNY_PERSISTENT_FOLDER}/instances/${ZNUNY_INSTANCE}/app
   ZnunyPersistent:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: ${ZNUNY_PERSISTENT_FOLDER}/${ZNUNY_INSTANCE}/persistent
+      device: ${ZNUNY_PERSISTENT_FOLDER}/instances/${ZNUNY_INSTANCE}/persistent
   ZnunyLog:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: ${ZNUNY_PERSISTENT_FOLDER}/${ZNUNY_INSTANCE}/log
+      device: ${ZNUNY_PERSISTENT_FOLDER}/instances/${ZNUNY_INSTANCE}/log
   ZnunyArticle:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: ${ZNUNY_PERSISTENT_FOLDER}/${ZNUNY_INSTANCE}/article
+      device: ${ZNUNY_PERSISTENT_FOLDER}/instances/${ZNUNY_INSTANCE}/article
   ZnunyHTDocs:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: ${ZNUNY_PERSISTENT_FOLDER}/${ZNUNY_INSTANCE}/htdocs_custom
+      device: ${ZNUNY_PERSISTENT_FOLDER}/instances/${ZNUNY_INSTANCE}/htdocs_custom
+  ZnunySMIME:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${ZNUNY_PERSISTENT_FOLDER}/instances/${ZNUNY_INSTANCE}/smime
 
 services:
   znuny-httpd:
+    image: znuny-httpd:${ZNUNY_VERSION}
+    pull_policy: never
     build:
       context: .
       dockerfile: ./dockerfiles/Dockerfile.znuny
@@ -82,8 +98,10 @@ services:
       retries: 6
       start_period: 300s
     volumes:
-      - Znuny:/opt/znuny
+      - LinuxTruststore:/usr/local/share/ca-certificates
+      - ZnunyApp:/opt/znuny
       - ZnunyLog:/opt/znuny/var/log
       - ZnunyArticle:/opt/znuny/var/article
       - ZnunyHTDocs:/opt/znuny/var/httpd/htdocs/custom
       - ZnunyPersistent:/persistent
+      - ZnunySMIME:/opt/znuny_volumes/smime
