@@ -14,6 +14,7 @@ ZNUNY_NodeID=${ZNUNY_NodeID:-1}
 
 export ZNUNY_STAGING=${ZNUNY_STAGING}
 export ZNUNY_STAGING_CFG="${ZNUNY_STAGING}/Kernel/Config.pm"
+ZNUNY_VOLUMES="/opt/znuny_volumes"
 
 APACHE_USER=${APACHE_RUN_USER:-www-data}
 
@@ -48,6 +49,11 @@ if [ ! -f "${ZNUNY_HOME}/bin/znuny.SetPermissions.pl" ]; then
     mkdir -p "${ZNUNY_HOME}/bin"
     cp "${ZNUNY_STAGING}/bin/znuny.SetPermissions.pl" "${ZNUNY_HOME}/bin/znuny.SetPermissions.pl"
     "$ZNUNY_HOME/bin/znuny.SetPermissions.pl" --znuny-user "${ZNUNY_USER}"
+fi
+
+if [ "$(stat -c '%U:%G' "$ZNUNY_VOLUMES")" != "${ZNUNY_USER}:${APACHE_USER}" ]; then
+    chown -R "${ZNUNY_USER}:${APACHE_USER}" "$ZNUNY_VOLUMES"
+    chmod 775 -R "$ZNUNY_VOLUMES"
 fi
 
 # Create Config.pm if it doesn't already exist
@@ -93,13 +99,61 @@ update-ca-certificates
 
 if [[ -v WEB_PORT ]]; then
     ZNUNY_DEFAULT_INTERFACE="${ZNUNY_DEFAULT_INTERFACE}"
+    WEB_REMOTE_USER="${WEB_REMOTE_USER}"
+    APACHE_CONFIG_FILE="${ZNUNY_HOME}/scripts/apache2-httpd.include.conf"
+    APACHE_CONFIG_FILE_DST="/etc/apache2/conf-available/zzz_znuny.conf"
 
     gosu "${ZNUNY_USER}" /usr/local/bin/znuny_setup.sh 2>&1 || exit $?
 
-    # Setup Apache Znuny config (shared volume is now available)
-    if [ ! -f /etc/apache2/conf-available/zzz_znuny.conf ]; then
-        ln -s ${ZNUNY_HOME}/scripts/apache2-httpd.include.conf /etc/apache2/conf-available/zzz_znuny.conf
+    # Setup Apache Znuny config
+    if [ ! -f ${APACHE_CONFIG_FILE_DST} ]; then
+        ln -s ${APACHE_CONFIG_FILE} ${APACHE_CONFIG_FILE_DST}
         a2enconf zzz_znuny
+    fi
+
+    # Use OS Truststore in Znuny (needed for some functions for example package management - own repository)
+    # SetEnv PERL_LWP_SSL_CA_FILE /etc/ssl/certs/ca-certificates.crt
+    if ! grep -Eq '^[[:space:]]*SetEnv[[:space:]]+PERL_LWP_SSL_CA_FILE[[:space:]]+/etc/ssl/certs/ca-certificates\.crt[[:space:]]*$' "$APACHE_CONFIG_FILE"; then
+        # Create unique tmp file and remove it later
+        TMP_FILE=$(mktemp)
+        trap 'rm -f "$TMP_FILE"' EXIT
+
+        # Remove all existing lines
+        awk '
+            !/^[[:space:]]*#[[:space:]]*SetEnv[[:space:]]+PERL_LWP_SSL_CA_FILE[[:space:]]+\/etc\/ssl\/certs\/ca-certificates\.crt[[:space:]]*$/
+        ' "$APACHE_CONFIG_FILE" > "$TMP_FILE"
+
+        # Create the new file content
+        {
+            printf '%s\n' 'SetEnv PERL_LWP_SSL_CA_FILE /etc/ssl/certs/ca-certificates.crt'
+            cat "$TMP_FILE"
+        } | tee "$APACHE_CONFIG_FILE" > /dev/null
+    fi
+
+    # ACCEPT X-Forwarded-User HTTP-Header
+    if [ "${WEB_REMOTE_USER}" = "true" ]; then
+        # Enable Apache Module
+        if ! apache2ctl -M 2>/dev/null | grep -q 'setenvif_module'; then
+            a2enmod setenvif
+        fi
+
+        # Add needing lines to the file
+        if ! grep -Eq '^[[:space:]]*SetEnvIf[[:space:]]+X-Forwarded-User[[:space:]]+\(\.\*\)[[:space:]]+REMOTE_USER=\$1[[:space:]]*$' "$APACHE_CONFIG_FILE"; then
+            # Create unique tmp file and remove it later
+            TMP_FILE=$(mktemp)
+            trap 'rm -f "$TMP_FILE"' EXIT
+
+            # Remove all existing lines
+            awk '
+                !/^[[:space:]]*#[[:space:]]*SetEnvIf[[:space:]]+X-Forwarded-User[[:space:]]+\(\.\*\)[[:space:]]+REMOTE_USER=\$1[[:space:]]*$/
+            ' "$APACHE_CONFIG_FILE" > "$TMP_FILE"
+
+            # Create the new file content
+            {
+                printf '%s\n' 'SetEnvIf X-Forwarded-User (.*) REMOTE_USER=$1'
+                cat "$TMP_FILE"
+            } | tee "$APACHE_CONFIG_FILE" > /dev/null
+        fi
     fi
 
     # Redirect "/" to the default interface

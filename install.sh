@@ -125,4 +125,5 @@ UP_ARGS=(-d)
 [ "$BUILD" = 1 ] && UP_ARGS+=(--build)
 
 echo "Starting project with: ${COMPOSE_FILES[*]}"
+echo docker compose --env-file "$ENV_FILE" "${COMPOSE_FILES[@]}" up "${UP_ARGS[@]}"
 docker compose --env-file "$ENV_FILE" "${COMPOSE_FILES[@]}" up "${UP_ARGS[@]}"
