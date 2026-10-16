@@ -241,8 +241,7 @@ RUN sed -i 's/^#use DBD::mysql/use DBD::mysql/' "${ZNUNY_STAGING}/scripts/apache
 
 # Apache configuration
 RUN a2dismod mpm_event && \
-    a2enmod mpm_prefork perl headers deflate filter cgi rewrite && \
-    echo "RedirectMatch ^/$ /znuny/index.pl" >> /etc/apache2/apache2.conf
+    a2enmod mpm_prefork perl headers deflate filter cgi rewrite
 
 ENV APACHE_RUN_USER=${APACHE_USER} \
     APACHE_RUN_GROUP=${APACHE_USER} \
@@ -259,6 +258,17 @@ RUN mkdir -p /var/run/apache2 /var/lock/apache2 /var/log/apache2 && \
 
 # Container-internal HTTP port (the external port is set with WEB_PORT in compose)
 EXPOSE 80
+
+# Apache Securtiy
+RUN sed -i \
+    -e 's/^[[:space:]]*ServerTokens.*/ServerTokens Prod/' \
+    -e 's/^[[:space:]]*ServerSignature.*/ServerSignature Off/' \
+    -e 's/^[[:space:]]*TraceEnable.*/TraceEnable Off/' \
+    /etc/apache2/conf-available/security.conf \
+    && a2enconf security
+
+RUN sed -i 's/Require all granted/Require all denied/g' /etc/apache2/apache2.conf
+
 
 # Setup Entry
 COPY ./entrypoints/apache.sh /usr/local/bin/entrypoint.sh

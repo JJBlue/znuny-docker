@@ -156,7 +156,7 @@ if [[ -v WEB_PORT ]]; then
         fi
     fi
 
-    # Redirect "/" to the default interface
+    # Redirect ... to the default interface
     case "$ZNUNY_DEFAULT_INTERFACE" in
         customer)
             DEFAULT_PAGE="customer.pl" ;;
@@ -167,7 +167,42 @@ if [[ -v WEB_PORT ]]; then
             DEFAULT_PAGE="index.pl"
             ;;
     esac
+
+    # Redirect "/znuny-web/" to the default interface
     sed -i "s|URL=/znuny/[a-z_]*\.pl|URL=/znuny/${DEFAULT_PAGE}|" ${ZNUNY_HOME}/var/httpd/htdocs/index.html
+
+
+    # Redirect "/" to the default interface
+    if ! grep -Eq '^[[:space:]]*RedirectMatch[[:space:]]+^/$[[:space:]]+' "$APACHE_CONFIG_FILE"; then
+        # Create unique tmp file and remove it later
+        TMP_FILE=$(mktemp)
+        trap 'rm -f "$TMP_FILE"' EXIT
+
+        # Remove all existing lines
+        awk '!/RedirectMatch[[:space:]]+\^\/\$/' "$APACHE_CONFIG_FILE" > "$TMP_FILE"
+
+        # Create the new file content
+        {
+            printf 'RedirectMatch ^/$ /znuny/%s\n' "${DEFAULT_PAGE}"
+            cat "$TMP_FILE"
+        } | tee "$APACHE_CONFIG_FILE" > /dev/null
+    fi
+
+    # Redirect "/znuny/" to the default interface
+    if ! grep -Eq '^[[:space:]]*RedirectMatch[[:space:]]+^/znuny/$[[:space:]]+' "$APACHE_CONFIG_FILE"; then
+        # Create unique tmp file and remove it later
+        TMP_FILE=$(mktemp)
+        trap 'rm -f "$TMP_FILE"' EXIT
+
+        # Remove all existing lines
+        awk '!/RedirectMatch[[:space:]]+\^\/znuny\/\$/' "$APACHE_CONFIG_FILE" > "$TMP_FILE"
+
+        # Create the new file content
+        {
+            printf 'RedirectMatch ^/znuny/$ /znuny/%s\n' "${DEFAULT_PAGE}"
+            cat "$TMP_FILE"
+        } | tee "$APACHE_CONFIG_FILE" > /dev/null
+    fi
 
     # Welcome message
     echo "Agent Site    http://${FQDN}:${WEB_PORT}/znuny/index.pl"
